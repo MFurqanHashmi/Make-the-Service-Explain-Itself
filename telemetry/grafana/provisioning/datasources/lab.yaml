@@ -1,0 +1,38 @@
+apiVersion: 1
+datasources:
+  - name: Lab Prometheus
+    uid: lab-prometheus
+    type: prometheus
+    access: proxy
+    url: http://localhost:9090
+    isDefault: false
+    editable: false
+  - name: Lab Loki
+    uid: lab-loki
+    type: loki
+    access: proxy
+    url: http://localhost:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          datasourceUid: lab-tempo
+          matcherType: label
+          matcherRegex: trace_id
+          url: '$${__value.raw}'
+          urlDisplayLabel: 'Open trace'
+  - name: Lab Tempo
+    uid: lab-tempo
+    type: tempo
+    access: proxy
+    url: http://localhost:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: lab-loki
+        spanStartTimeShift: '-5s'
+        spanEndTimeShift: '5s'
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: true
+        query: '{$${__tags}} | trace_id = "$${__trace.traceId}"'

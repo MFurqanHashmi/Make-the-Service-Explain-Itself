@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
+cmd="${1:-help}"; shift || true
+compose=(docker compose)
+wait_health(){
+  local deadline=$((SECONDS+120))
+  while (( SECONDS < deadline )); do
+    if "${compose[@]}" exec -T checkout python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health',timeout=2)" >/dev/null 2>&1; then return 0; fi
+    sleep 2
+  done
+  echo "ERROR: services did not become ready" >&2; "${compose[@]}" ps; return 1
+}
+restore(){
+  local cp="$1"
+  cp "checkpoints/$cp/checkout.py" checkout/app/checkout.py
+  cp "checkpoints/$cp/validation.py" payment/app/validation.py
+}
+run_tools(){ "${compose[@]}" run --rm --no-deps tools "$@"; }
+case "$cmd" in
+  setup)
+    docker pull grafana/otel-lgtm:0.29.0
+    docker build -t observability-lab-python:1.0 -f docker/python.Dockerfile .
+    echo "SETUP COMPLETE"
+    ;;
+  start)
+    mkdir -p .lab-state
+    "${compose[@]}" up -d --no-build --pull never lgtm inventory payment checkout
+    wait_health
+    echo "STARTED: run ./lab ready, then ./lab links"
+    ;;
+  ready)
+    wait_health
+    run_tools python /workspace/scripts/check_ready.py
+    run_tools python /workspace/scripts/check_grafana.py
+    ;;
+  traffic)
+    run_tools python /workspace/traffic/generate.py "${1:-incident}"
+    ;;
+  check)
+    signal="${1:?metrics|traces|logs required}"
+    run_tools python "/workspace/scripts/check_${signal}.py"
+    ;;
+  recover)
+    signal="${1:?metrics|traces|logs required}"
+    case "$signal" in metrics) cp=1-metrics-complete;; traces) cp=2-traces-complete;; logs) cp=3-logs-complete;; *) exit 2;; esac
+    restore "$cp"
+    echo "Restored checkpoint $cp; waiting for hot reload..."
+    sleep 3
+    "${compose[@]}" up -d --no-build --pull never lgtm inventory payment checkout >/dev/null
+    wait_health
+    "$0" traffic incident >/dev/null
+    "$0" check "$signal"
+    ;;
+  checkpoint)
+    case "${1:?starter|metrics|traces|logs required}" in starter) cp=0-starter;; metrics) cp=1-metrics-complete;; traces) cp=2-traces-complete;; logs) cp=3-logs-complete;; *) exit 2;; esac
+    restore "$cp"; echo "CHECKPOINT: $cp restored"
+    ;;
+  reset)
+    restore 0-starter
+    rm -rf .lab-state && mkdir -p .lab-state
+    "${compose[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
+    echo "RESET: starter code and empty telemetry state restored"
+    ;;
+  test)
+    run_tools sh -c 'cd /workspace && python -m unittest discover -s tests -t . -v'
+    ;;
+  links) run_tools python /workspace/scripts/links.py;;
+  validate-full) exec "$ROOT/scripts/validate_full.sh";;
+  stop) "${compose[@]}" stop;;
+  export-images) docker save -o "${1:-observability-lab-images.tar}" grafana/otel-lgtm:0.29.0 observability-lab-python:1.0;;
+  import-images) docker load -i "${1:?image archive required}";;
+  *) echo "Usage: ./lab setup|start|ready|traffic PROFILE|check SIGNAL|recover SIGNAL|checkpoint NAME|reset|test|links|validate-full|stop";;
+esac
