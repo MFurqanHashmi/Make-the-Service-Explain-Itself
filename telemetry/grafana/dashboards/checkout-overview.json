@@ -1,17 +1,21 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "uid": "checkout-overview",
+  "title": "Checkout: detect and scope hidden failures",
+  "tags": [
+    "observability-lab"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
   "editable": false,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
-  "id": null,
-  "links": [],
-  "liveNow": false,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "panels": [
     {
       "type": "text",
-      "title": "Question",
+      "title": "What this dashboard is for",
       "gridPos": {
         "h": 4,
         "w": 24,
@@ -20,14 +24,15 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "## Host metrics are normal and every request is HTTP 200. Is checkout healthy?\nThe business outcome metric added in this checkpoint answers that question."
+        "content": "### Every request returned HTTP 200. Runtime metrics are normal. Is checkout healthy?\n\n**HTTP 200 responses** is the *lowest* success rate in any 15-second window \u2014 the best case for transport. **Peak business failures** is the *highest* failure rate in any 15-second window \u2014 the worst case for the business outcome. A healthy service agrees with itself across both. For exact whole-checkout counts, read **Checkout outcomes by segment**."
       }
     },
     {
       "type": "stat",
       "title": "HTTP 200 responses",
+      "description": "Lowest HTTP success rate in any 30s window. Transport-level health only: it says the API answered, not that checkout did its job.",
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 0,
         "y": 4
@@ -46,8 +51,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
-          "max": 100,
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -56,8 +60,12 @@
                 "value": null
               },
               {
+                "color": "orange",
+                "value": 95
+              },
+              {
                 "color": "green",
-                "value": 99
+                "value": 99.5
               }
             ]
           }
@@ -67,7 +75,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "min"
           ],
           "values": false
         },
@@ -78,9 +86,10 @@
     },
     {
       "type": "stat",
-      "title": "Business failure rate",
+      "title": "Peak business failures",
+      "description": "Highest business-failure rate in any 30s window. 'or vector(0)' keeps the panel showing 0% during healthy traffic instead of dropping to No data.",
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 6,
         "y": 4
@@ -92,15 +101,14 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(rate({__name__=~\"checkout_completed.*\",checkout_outcome!=\"success\"}[15s])) / sum(rate({__name__=~\"checkout_completed.*\"}[15s]))",
+          "expr": "100 * sum(rate({__name__=~\"checkout_completed.*\",checkout_outcome!=\"success\"}[15s]) or vector(0)) / sum(rate({__name__=~\"checkout_completed.*\"}[15s]))",
           "legendFormat": "Business failures"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
-          "max": 100,
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -124,7 +132,7 @@
       "options": {
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "max"
           ],
           "values": false
         },
@@ -136,8 +144,9 @@
     {
       "type": "stat",
       "title": "Checkout CPU",
+      "description": "Process CPU for the checkout service. Normal throughout the incident.",
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 12,
         "y": 4
@@ -156,8 +165,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "min": 0,
-          "max": 100,
+          "decimals": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -185,7 +193,7 @@
           ],
           "values": false
         },
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "textMode": "auto"
       }
@@ -193,8 +201,9 @@
     {
       "type": "stat",
       "title": "Checkout memory",
+      "description": "Resident memory for the checkout service. Normal throughout the incident.",
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 6,
         "x": 18,
         "y": 4
@@ -213,16 +222,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
+          "decimals": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "orange",
-                "value": 268435456
               }
             ]
           }
@@ -236,7 +242,7 @@
           ],
           "values": false
         },
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "textMode": "auto"
       }
@@ -244,11 +250,12 @@
     {
       "type": "timeseries",
       "title": "Business outcome over time",
+      "description": "Healthy traffic shows one line. Incident traffic adds a second.",
       "gridPos": {
         "h": 9,
-        "w": 14,
+        "w": 13,
         "x": 0,
-        "y": 10
+        "y": 9
       },
       "datasource": {
         "type": "prometheus",
@@ -265,24 +272,50 @@
         "defaults": {
           "unit": "reqps",
           "custom": {
-            "drawStyle": "line",
-            "lineWidth": 3,
-            "fillOpacity": 18,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            }
+            "fillOpacity": 20,
+            "lineWidth": 2,
+            "showPoints": "never"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "payment_rejected"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "success"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
           "calcs": [
-            "lastNotNull"
+            "max"
           ]
         },
         "tooltip": {
@@ -293,12 +326,13 @@
     },
     {
       "type": "bargauge",
-      "title": "Failures by segment",
+      "title": "Checkout outcomes by segment",
+      "description": "Cumulative count of every currency and discount combination that has run, split by business outcome. Reading the counter directly avoids rate extrapolation, so these are exact whole checkouts.",
       "gridPos": {
         "h": 9,
-        "w": 10,
-        "x": 14,
-        "y": 10
+        "w": 11,
+        "x": 13,
+        "y": 9
       },
       "datasource": {
         "type": "prometheus",
@@ -307,60 +341,69 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (checkout_currency, checkout_discounted) (increase({__name__=~\"checkout_completed.*\",checkout_outcome!=\"success\"}[2m]))",
-          "legendFormat": "{{checkout_currency}} \u00b7 discounted={{checkout_discounted}}"
+          "expr": "sum by (checkout_currency, checkout_discounted, checkout_outcome) ({__name__=~\"checkout_completed.*\"})",
+          "legendFormat": "{{checkout_currency}} discounted={{checkout_discounted}} \u2192 {{checkout_outcome}}",
+          "instant": true
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
-              },
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*payment_rejected.*"
+            },
+            "properties": [
               {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 20
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    }
+                  ]
+                }
               }
             ]
           }
-        },
-        "overrides": []
+        ]
       },
       "options": {
-        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        },
+        "displayMode": "basic",
         "orientation": "horizontal",
         "showUnfilled": true,
-        "minVizWidth": 10,
-        "minVizHeight": 16
+        "minVizWidth": 8,
+        "minVizHeight": 16,
+        "valueMode": "text",
+        "namePlacement": "top",
+        "text": {
+          "titleSize": 13,
+          "valueSize": 30
+        }
       }
     }
-  ],
-  "refresh": "5s",
-  "schemaVersion": 41,
-  "tags": [
-    "observability-lab",
-    "metrics"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-5m",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "browser",
-  "title": "Checkout: detect and scope hidden failures",
-  "uid": "checkout-overview",
-  "version": 1,
-  "weekStart": ""
+  ]
 }

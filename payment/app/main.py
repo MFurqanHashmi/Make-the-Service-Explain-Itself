@@ -20,11 +20,13 @@ def health(): return {"status": "ok"}
 
 @app.post("/authorize")
 def authorize(request: Authorization):
-    logger.info("Payment authorization requested in %s", request.currency)
+    # Neither prose log names the currency, the discount, or the decision.
+    logger.info("Authorization requested")
     accepted = validate_amount(
         request.unrounded_total,
         request.received_minor_units,
         request.currency,
         request.discounted,
     )
+    logger.info("Authorization decision returned")
     return {"accepted": accepted, "reason": None if accepted else "amount_validation_failed"}

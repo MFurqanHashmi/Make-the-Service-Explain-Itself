@@ -16,6 +16,21 @@ class MetricsDeltaTests(unittest.TestCase):
         rows=[{"metric":{},"values":[[99,"80"],[101,"1"],[110,"25"]]}]
         self.assertEqual(25.0, check_metrics.deltas(rows,100)[0][1])
 
+    def test_reset_hidden_behind_a_stale_pre_reload_value(self):
+        """A series the reloaded process has not touched keeps reporting its old value.
+
+        The drop only appears once traffic reaches that series, so a reset check
+        that looks only at the window's first sample computes a negative delta and
+        clamps it to zero. This is what broke './lab recover metrics'.
+        """
+        rows=[{"metric":{},"values":[[99,"100"],[101,"100"],[103,"100"],[105,"2"],[110,"25"]]}]
+        self.assertEqual(25.0, check_metrics.deltas(rows,100)[0][1])
+
+    def test_multiple_resets_in_one_window(self):
+        rows=[{"metric":{},"values":[[101,"5"],[103,"2"],[105,"7"],[107,"3"]]}]
+        # 5 + 2 + (7-2) + 3 = 15
+        self.assertEqual(15.0, check_metrics.deltas(rows,100)[0][1])
+
 class TraceCheckTests(unittest.TestCase):
     def test_finds_error_span_without_explanation_fields(self):
         with tempfile.TemporaryDirectory() as td:

@@ -33,6 +33,7 @@ async def process_checkout(request: CheckoutRequest) -> dict:
             outcome = "inventory_rejected"
         else:
             received_minor_units = checkout_amount(request.unrounded_total)
+            logger.info("Totals calculated for %s", request.order_id)
             payment = await client.post(
                 f"{PAYMENT_URL}/authorize",
                 json={
@@ -44,7 +45,8 @@ async def process_checkout(request: CheckoutRequest) -> dict:
             )
             payment.raise_for_status()
             outcome = "success" if payment.json()["accepted"] else "payment_rejected"
-    logger.info("Finished checkout %s with %s", request.order_id, outcome)
+    # The prose log records that checkout ran, not what it decided.
+    logger.info("Finished checkout %s", request.order_id)
 
     # LAB 1: record checkout result
     checkout_completed.add(

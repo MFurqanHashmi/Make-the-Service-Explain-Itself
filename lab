@@ -2,9 +2,32 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
 cmd="${1:-help}"; shift || true
-compose=(docker compose)
+
+IMAGE="observability-lab-python:1.0"
+LGTM_IMAGE="grafana/otel-lgtm:0.29.0"
+# --progress quiet keeps "Container xxx Created" noise out of every command's output.
+compose=(docker compose --progress quiet)
+
+require_docker(){
+  if ! docker info >/dev/null 2>&1; then
+    echo "ERROR: cannot reach the Docker daemon." >&2
+    echo "Start Docker Desktop, wait for it to finish starting, then try again." >&2
+    return 1
+  fi
+}
+require_images(){
+  require_docker
+  local missing=()
+  docker image inspect "$IMAGE" >/dev/null 2>&1 || missing+=("$IMAGE")
+  docker image inspect "$LGTM_IMAGE" >/dev/null 2>&1 || missing+=("$LGTM_IMAGE")
+  if (( ${#missing[@]} )); then
+    echo "ERROR: missing Docker image(s): ${missing[*]}" >&2
+    echo "Run './lab setup' once while online, or './lab import-images <archive.tar>' offline." >&2
+    return 1
+  fi
+}
 wait_health(){
-  local deadline=$((SECONDS+120))
+  local deadline=$((SECONDS+180))
   while (( SECONDS < deadline )); do
     if "${compose[@]}" exec -T checkout python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health',timeout=2)" >/dev/null 2>&1; then return 0; fi
     sleep 2
@@ -16,23 +39,34 @@ restore(){
   cp "checkpoints/$cp/checkout.py" checkout/app/checkout.py
   cp "checkpoints/$cp/validation.py" payment/app/validation.py
 }
-run_tools(){ "${compose[@]}" run --rm --no-deps tools "$@"; }
+run_tools(){ "${compose[@]}" run --rm --no-deps -T tools "$@"; }
 case "$cmd" in
   setup)
-    docker pull grafana/otel-lgtm:0.29.0
-    docker build -t observability-lab-python:1.0 -f docker/python.Dockerfile .
-    echo "SETUP COMPLETE"
+    docker pull "$LGTM_IMAGE"
+    docker build -t "$IMAGE" -f docker/python.Dockerfile .
+    echo "SETUP COMPLETE: run './lab start'"
     ;;
   start)
+    require_images
     mkdir -p .lab-state
+    echo "Starting the lab stack. The first run pulls nothing but unpacks images,"
+    echo "so it can take two to three minutes. Later runs take a few seconds."
     "${compose[@]}" up -d --no-build --pull never lgtm inventory payment checkout
+    echo "Services created. Waiting for checkout to report healthy..."
     wait_health
-    echo "STARTED: run ./lab ready, then ./lab links"
+    echo "STARTED: run './lab ready', then './lab links'"
     ;;
   ready)
     wait_health
     run_tools python /workspace/scripts/check_ready.py
     run_tools python /workspace/scripts/check_grafana.py
+    ;;
+  restart-services)
+    # The readiness markers are emitted once, at import. If a backend was not
+    # accepting data yet, restarting the applications re-emits them.
+    "${compose[@]}" restart inventory payment checkout
+    wait_health
+    echo "RESTARTED: run './lab ready' again"
     ;;
   traffic)
     run_tools python /workspace/traffic/generate.py "${1:-incident}"
@@ -68,7 +102,35 @@ case "$cmd" in
   links) run_tools python /workspace/scripts/links.py;;
   validate-full) exec "$ROOT/scripts/validate_full.sh";;
   stop) "${compose[@]}" stop;;
-  export-images) docker save -o "${1:-observability-lab-images.tar}" grafana/otel-lgtm:0.29.0 observability-lab-python:1.0;;
+  export-images) docker save -o "${1:-observability-lab-images.tar}" "$LGTM_IMAGE" "$IMAGE";;
   import-images) docker load -i "${1:?image archive required}";;
-  *) echo "Usage: ./lab setup|start|ready|traffic PROFILE|check SIGNAL|recover SIGNAL|checkpoint NAME|reset|test|links|validate-full|stop";;
+  *)
+    cat <<'USAGE'
+Usage: ./lab <command>
+
+Setup
+  setup                    Pull and build the pinned images (run once, online)
+  export-images [FILE]     Save the pinned images to an archive
+  import-images FILE       Load images from an archive (offline setup)
+
+Running the lab
+  start                    Start the stack
+  ready                    Verify every backend is serving data
+  links                    Print every prepared Grafana link
+  traffic healthy|incident Generate a traffic profile
+  check metrics|traces|logs Verify fresh evidence for one signal
+  stop                     Stop containers, keep telemetry and code
+
+If something goes wrong
+  ready                    Safe to re-run; backends can be slow to start
+  restart-services         Re-emit readiness markers, then run 'ready' again
+  recover metrics|traces|logs  Restore that checkpoint and re-verify
+  checkpoint starter|metrics|traces|logs  Restore code only
+  reset                    Restore starter code and delete telemetry
+
+Maintenance
+  test                     Run unit and contract tests in-container
+  validate-full            Validate the complete path end to end
+USAGE
+    ;;
 esac

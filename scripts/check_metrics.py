@@ -19,15 +19,26 @@ def metric_name(prefix):
 def series(query,start,end):
     return api("/api/v1/query_range",{"query":query,"start":start-LOOKBACK,"end":end,"step":1})["result"]
 def deltas(rows,start):
+    """Increase per series between `start` and the end of the window.
+
+    Hot reload restarts the process, so any counter can reset to zero part way
+    through. A reset is not always visible at the window's first sample: a series
+    the reloaded process has not touched yet keeps reporting its stale pre-reload
+    value, and the drop only appears once traffic reaches that series. So walk the
+    whole window and treat every decrease as a restart.
+    """
     out=[]
     for item in rows:
         vals=[(float(t),float(v)) for t,v in item.get("values",[])]
         window=[v for t,v in vals if t>=start]
         if not window: continue
         before=[v for t,v in vals if t<start]
-        baseline=before[-1] if before else 0.0
-        if baseline>window[0]: baseline=0.0
-        out.append((item["metric"],max(0.0,window[-1]-baseline)))
+        previous=before[-1] if before else 0.0
+        total=0.0
+        for current in window:
+            total += (current-previous) if current>=previous else current
+            previous=current
+        out.append((item["metric"],max(0.0,total)))
     return out
 
 def main():

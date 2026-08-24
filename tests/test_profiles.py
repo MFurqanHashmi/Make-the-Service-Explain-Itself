@@ -1,5 +1,8 @@
-import importlib.util, unittest
+import importlib.util, sys, types, unittest
 from pathlib import Path
+# The generator imports httpx, which only exists inside the lab image. Stub it so
+# the profile maths can also be checked with a bare host python.
+sys.modules.setdefault('httpx', types.ModuleType('httpx'))
 spec=importlib.util.spec_from_file_location('traffic_generate', Path(__file__).parents[1]/'traffic/generate.py')
 mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
 from shared.domain import checkout_amount, payment_expected_amount
