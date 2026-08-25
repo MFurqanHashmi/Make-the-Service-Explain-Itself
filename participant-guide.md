@@ -1,20 +1,25 @@
 # Guided observability lab
 
 > **Read this file in a Markdown preview.** In VS Code press `Cmd+Shift+V`. This guide hides
-> answers behind "Check your evidence" and "Predict first" toggles, and in a plain text editor
-> those answers are visible immediately, which removes most of the value of the exercise.
+> answers — and the screenshots that would give them away — behind toggles. In a plain text editor
+> they are all visible immediately, which removes most of the value of the exercise.
 
 You will make three small, real instrumentation changes to the same checkout system. The guide
 supplies every code block and every Grafana view. You do not need to configure the telemetry
 stack or write a single query.
 
-Each change is presented the same way, so you always know why you are typing something:
+Sections 2, 3 and 4 are one change each, and all three follow the same shape, so you always know
+why you are typing something:
 
-1. **The pain we are fixing** — the question you cannot answer yet.
-2. **The change** — the code, plus an anatomy of what every part of it does.
-3. **The design decisions** — why it is shaped that way, and what was deliberately left out.
-4. **What you should expect to see** — a screenshot of the view this change unlocks.
-5. **Produce evidence** — generate it yourself and read it.
+1. **The pain we are fixing**, and the **operational question** you cannot yet answer.
+2. **What already exists** — the part of the job the codebase or the SDK has done for you.
+3. **The change**, then an **anatomy** of what every part of it does.
+4. **The design decision that matters** — why it is shaped that way, and what was left out on
+   purpose.
+5. **What you should expect to see** — a screenshot of the view the change unlocks, behind a
+   toggle so it does not answer the section for you. Open it when you want the target, or after
+   your own view is on screen.
+6. **Produce evidence** — generate it, read it, and record what it does and does not prove.
 
 ## Before you start
 
@@ -38,8 +43,9 @@ business outcome is rejected.**
 
 ## How the lab is scored
 
-You are answering four questions. Right now you can answer none of them. Each section unlocks
-exactly one, and you will see this table again at every checkpoint.
+You are answering four questions. Right now you can answer none of them. Each instrumentation
+section unlocks the next answer — metrics unlocks two — and you will see this table again at every
+checkpoint.
 
 | Question | Can you answer it? |
 | --- | --- |
@@ -69,7 +75,37 @@ If `./lab ready` reports that a backend is not serving data yet, **run it again*
 backends sometimes need a second attempt on a cold start. If it still fails, run
 `./lab restart-services` and then `./lab ready`.
 
-Keep the printed Grafana links available. All views use a relative 15-minute time range.
+Keep the printed Grafana links available. All views use a relative 15-minute time range. Grafana
+needs no login — the lab runs it with anonymous access, so ignore the "Sign in" button in the
+corner.
+
+### What you will edit
+
+Two files, three markers, nothing else:
+
+| Section | File | Marker |
+| --- | --- | --- |
+| 2. Metrics | `checkout/app/checkout.py` | `# LAB 1: record checkout result` |
+| 3. Traces | `payment/app/validation.py` | `# LAB 2: replace validation evidence block` |
+| 4. Structured logs | `payment/app/validation.py` | `# LAB 3: record amount validation rejection` |
+
+Open the repository in your editor now. Both services run with hot reload, so saving the file is
+the entire deploy step — you never rebuild or restart a container during this lab.
+
+### If an edit goes wrong
+
+A paste at the wrong indentation stops the service reloading, and the next traffic run fails
+instead of producing evidence. Two escapes:
+
+```bash
+docker compose logs --tail 20 checkout   # or payment; shows the syntax error
+./lab checkpoint metrics                 # restore correct code for a stage: metrics|traces|logs
+```
+
+`./lab checkpoint <stage>` restores code only, so it is also how you catch up if you fall behind.
+`./lab recover <stage>` does the same and then regenerates and re-verifies the evidence. Both are
+cumulative: `traces` includes the metrics change, and restoring an earlier stage discards later
+edits.
 
 ---
 
@@ -90,6 +126,11 @@ That is 100 checkouts. Open **Noisy starting logs** from `./lab links`. You shou
 something like this:
 
 ![Explore showing 838 undifferentiated INFO log lines for 100 checkouts](docs/images/01-noisy-logs.png)
+
+Two details in that screenshot are the whole problem. The volume histogram is a single flat band of
+`info` — 838 lines, one severity. And the Fields sidebar on the left offers `service_name`,
+`severity_text`, and the file and line each message came from, but not one field describing what a
+checkout actually *did*.
 
 ### Your task
 
@@ -296,10 +337,19 @@ and 4. Each signal gets the cardinality it can afford.
 
 ### What you should expect to see
 
-Once you generate traffic in the next step, **Runtime and checkout metrics** should look like
-this. Notice the two panels disagreeing on purpose: transport is perfect, the business is not.
+Once you generate traffic in the next step, **Runtime and checkout metrics** gives you four stat
+tiles across the top, a rate graph, and a per-segment breakdown. Two of those tiles will disagree
+with each other, which is the entire point of the change you just made.
+
+<details>
+<summary>Show the finished dashboard — it contains the answer to your section 1 table</summary>
 
 ![Dashboard showing 100% HTTP 200 beside a 24% business failure rate, and 25 rejected discounted CAD checkouts](docs/images/02-checkout-dashboard.png)
+
+Transport is perfect and the business is not, on the same screen, for the same requests. The
+segment panel underneath names the affected group outright.
+
+</details>
 
 ### Produce evidence
 
@@ -318,8 +368,11 @@ draws a second red one underneath it. When both have finished you should see:
 - **Checkout CPU and memory:** normal.
 - **Peak business failures: 24–27%.** This panel reports the worst 15-second window, so it lands
   near but not exactly on the true rate depending on where the window falls.
-- **Checkout outcomes by segment:** exact whole checkouts. `CAD discounted=true → payment_rejected`
-  is the only failing row.
+- **Checkout outcomes by segment:** exact whole checkouts, counted across both runs. The healthy
+  run sends 50 standard CAD and 50 discounted USD; the incident run sends 50 standard CAD, 25
+  discounted USD and 25 discounted CAD. That is why the panel reads about 100 standard CAD and 75
+  discounted USD succeeding, against `CAD discounted=true → payment_rejected` — the only failing
+  row, at 25.
 
 The dashboard is the primary verification. For the exact numbers, run:
 
@@ -333,9 +386,9 @@ If the check reports a code/service error or times out:
 ./lab recover metrics
 ```
 
-Recovery restores the named cumulative checkpoint, waits for reload, generates fresh traffic, and
-verifies the evidence. Use the recovery command for your current stage; recovering to an earlier
-stage removes later instrumentation edits.
+Recovery restores the checkpoint, waits for the reload, generates fresh traffic and re-verifies —
+see [If an edit goes wrong](#if-an-edit-goes-wrong) in section 0. Always recover the stage you are
+on; an earlier stage discards later edits.
 
 ### Score section 1
 
@@ -357,10 +410,6 @@ the segment panel?
 2. Rejections are concentrated in discounted CAD checkouts. Standard CAD and discounted USD ran in
    the same window and every one of them succeeded.
 3. The metric does not show which operation rejected one request or why its amount was rejected.
-
-`outcome`, `currency`, and `discounted` have small, bounded vocabularies. Request IDs, order IDs,
-customer IDs, trace IDs, product IDs, and raw URLs are deliberately excluded from metric attributes
-because they would create many unique time series.
 
 </details>
 
@@ -411,7 +460,7 @@ Which operation rejected an affected checkout?
 Automatic instrumentation already traces the HTTP calls between Checkout, Inventory, and Payment,
 so a trace of the whole request is being recorded right now. What it cannot know is which
 *business decision* inside Payment mattered — auto-instrumentation sees an HTTP handler, not an
-amount validation. Naming that decision is your job, and it is three lines of work.
+amount validation. Naming that decision is your job, and it takes one `with` block.
 
 Open `payment/app/validation.py`. The imports you need are already at the top:
 
@@ -491,9 +540,11 @@ longer exist at four-space indentation — it now lives inside the `with` block.
 - **`set_status(Status(StatusCode.ERROR, ...))`** is the load-bearing line. It is what marks the
   span as failed, what draws the red icon, and what makes `status = error` a valid search. Without
   it, a rejection is a perfectly ordinary-looking span — the same trap as HTTP 200.
-- **The `with` block ends the span automatically**, which is what gives it a duration. `return
-  accepted` sits inside the block deliberately: returning from outside it would close the span
-  before the value is produced and would leave the return path untimed.
+- **The `with` block ends the span automatically** when it exits, which is what gives the operation
+  a duration. Everything from here on stays inside it on purpose — including the rejection event you
+  add in section 4. Code running inside the block has this span as its active context, and that is
+  what will make the next section's log line correlate to *this* operation rather than to the HTTP
+  request wrapped around it. `return accepted` moves inside for the same reason.
 
 ### The design decision that matters: what is *not* in the span
 
@@ -519,26 +570,34 @@ explain the failure."
 
 </details>
 
-### What you should expect to see
-
-A single trace containing all three services, green at the top, with one red span buried in
-Payment:
-
-![Trace waterfall with checkout, inventory and payment, and a red payment.amount_validation span](docs/images/03-failed-trace.png)
-
-**Prediction before you look at your own:** Checkout returned HTTP 200 for this request. Will the
-root span be green or red?
+**Prediction:** the trace you are about to open contains the HTTP 200 that Checkout returned for
+this request. Will the root span be green or red?
 
 <details>
-<summary>Predict first, then open</summary>
+<summary>Predict first, then open — the screenshot below gives it away</summary>
 
 Green. The root span is the HTTP request, and the HTTP request genuinely succeeded — Checkout
 handled it, returned 200, and nothing threw.
 
 The red is on the child span, because that is where your code made a judgement and recorded it.
-This is the same "every request returns 200" problem you started with, except now the waterfall
-shows both truths at once: transport succeeded, the business decision did not. A trace with a
-green root and a red child is a completely normal, correct picture of a business failure.
+This is the same "every request returns 200" problem you started with, except the waterfall now
+shows both truths at once: transport succeeded, the business decision did not. A green root with a
+red child is a completely normal, correct picture of a business failure.
+
+</details>
+
+### What you should expect to see
+
+One trace, roughly fifteen spans, three services nested inside each other in the order the request
+travelled — and exactly one span carrying a red error icon.
+
+<details>
+<summary>Show the finished waterfall — it names the failing service for you</summary>
+
+![Trace waterfall with checkout, inventory and payment, and a red payment.amount_validation span](docs/images/03-failed-trace.png)
+
+The same picture also rules a service out: `inventory POST /reserve` finished in 721µs with no
+error, so Inventory is cleared by the very view that indicts Payment.
 
 </details>
 
@@ -566,6 +625,14 @@ If the evidence does not appear:
 ./lab recover traces
 ```
 
+### Score section 1, question 3
+
+"Which checkout request produced one specific rejection?" — the trace ID at the top of that
+waterfall is the answer, and section 1 had nothing that could produce it. Payment's prose and
+Checkout's prose were unrelated text in one shared stream. One propagated trace context later, a
+single request carries one identifier across all three services, and you can hand that ID to
+somebody else knowing they will look at exactly the request you looked at.
+
 ### Record what the trace proves
 
 1. Inventory ________________________________________________.
@@ -578,10 +645,6 @@ If the evidence does not appear:
 1. Inventory completed successfully for the selected request, in well under a millisecond.
 2. The request was rejected during Payment amount validation.
 3. The trace does not explain the expected value, received value, or why those values differed.
-
-The span deliberately does not contain amounts or rounding modes. Those details belong in the event
-added next; otherwise the trace step would reveal the complete answer and the log would add no
-value. `./lab check traces` actively fails if amounts leak into the span.
 
 </details>
 
@@ -657,6 +720,42 @@ line begins with eight spaces because it remains inside the span:
 Save the file. The call to `_log_weak_rejection()` is gone; the helper above is now dead code, which
 is exactly what should happen to it.
 
+<details>
+<summary>Verify your edit — what the span block should look like now</summary>
+
+```python
+    # LAB 2: replace validation evidence block
+    with tracer.start_as_current_span("payment.amount_validation") as span:
+        span.set_attribute("payment.currency", currency)
+        span.set_attribute("payment.discounted", discounted)
+        span.set_attribute("validation.result", "accepted" if accepted else "rejected")
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, "amount validation rejected"))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            logger.warning(
+                "Payment amount validation rejected",
+                extra={
+                    "event_name": "payment.amount_validation_rejected",
+                    "reason_code": "minor_unit_mismatch",
+                    "payment_currency": currency,
+                    "payment_discounted": discounted,
+                    "expected_minor_units": expected_minor_units,
+                    "received_minor_units": received_minor_units,
+                    "checkout_rounding_mode": "HALF_UP",
+                    "payment_rounding_mode": "HALF_EVEN",
+                },
+            )
+
+        return accepted
+```
+
+The two `if not accepted:` blocks are both at eight spaces, inside the `with`. `return accepted`
+is still the last line of the block.
+
+</details>
+
 ### Anatomy of the change
 
 - **`extra={...}`** is standard Python logging: each key becomes an attribute on the log record.
@@ -688,9 +787,11 @@ The SDK adds them. A log record emitted while a span is active picks up that spa
 IDs from the active context automatically, which is the whole reason this `logger.warning` sits
 inside the `with` block rather than after it.
 
-Move the same call outside the block and the fields would still be there, but the correlation would
-be gone — you would have an event that explains a failure with no way to reach the request it
-explains. Placement is instrumentation.
+Move the same call below the `with` block and it would not lose the trace outright — the HTTP
+server span for `POST /authorize` is still active out there, so the record would attach to *that*
+instead. You would keep the trace ID and lose the precision: the event would no longer point at the
+validation operation, and **Logs for this span** on the red span would come back empty. Placement
+is instrumentation.
 
 </details>
 
@@ -731,10 +832,19 @@ completely without a single piece of customer data.
 
 ### What you should expect to see
 
-`WARN` rows — not `INFO` — with every business field listed in the Fields sidebar at 100%,
-meaning the field is present on every one of the 25 events:
+`WARN` rows — not `INFO` — 25 of them, with every business field listed in the Fields sidebar at
+100%, meaning the field is present on every single event rather than on a lucky subset.
+
+<details>
+<summary>Show the finished Explore view</summary>
 
 ![Explore showing WARN events with every business field listed in the Fields sidebar at 100%](docs/images/04-structured-events.png)
+
+Hold this next to the section 1 screenshot of the same service. Same log stream, same incident —
+one is 838 lines of flat `info` with nothing to filter on, the other is 25 warnings with a sidebar
+full of business fields.
+
+</details>
 
 ### Produce evidence
 
@@ -847,14 +957,23 @@ Three minutes in section 1 produced no reliable answer. The same incident, with 
 requests, now takes under a minute to diagnose end to end — and the last code change happened
 *before* the investigation started.
 
+### What you would do next, for completeness
+
+Nothing in this lab fixes the bug, deliberately: the exercise is about evidence, not about
+`Decimal`. For closure — Checkout rounds with `HALF_UP` and Payment with `HALF_EVEN` (both in
+`shared/domain.py`), so any total landing on exactly half a cent becomes 1001 in one service and
+1000 in the other. The repair is to make rounding an explicit shared contract instead of a private
+choice each service makes quietly. That you can state the fix in one sentence, and name the file,
+is the entire return on the thirty lines you added.
+
 ---
 
 ## 6. Apply the review gate
 
 ### What the three changes were, together
 
-You added roughly twenty lines. They were not three ways of logging the same thing — each signal
-does a job the other two structurally cannot:
+You added about thirty lines across two files. They were not three ways of logging the same thing —
+each signal does a job the other two structurally cannot:
 
 | Question | Signal | Why this one | What it cannot do |
 | --- | --- | --- | --- |
