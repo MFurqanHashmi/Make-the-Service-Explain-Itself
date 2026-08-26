@@ -18,6 +18,18 @@ By the end, participants can use telemetry to answer four questions:
 Success means diagnosing the incident from telemetry that existed before the investigation. No new
 telemetry is added after the diagnosis begins.
 
+## What is where
+
+```text
+lab              every command you run, start to finish (./lab with no arguments lists them)
+guide/           what participants read: guide.html, the worksheet, and their Markdown sources
+services/        the checkout system under test — checkout, inventory, payment, shared
+workshop/        everything running the lab needs and nobody has to open:
+                 checkpoints, telemetry config, traffic generator, tests, Docker, facilitator notes
+```
+
+Participants only ever touch two files, both under `services/`, and both named in the guide.
+
 ## Stack
 
 - Python 3.12, FastAPI, Uvicorn, and `httpx`
@@ -53,11 +65,17 @@ For an offline session, a facilitator can distribute an image archive:
 ```bash
 ./lab start
 ./lab ready
+./lab guide
 ```
 
-`./lab start` can take two to three minutes the first time. Then follow
-[participant-guide.md](participant-guide.md) — read it in a Markdown preview, because it hides
-answers behind toggles.
+`./lab start` can take two to three minutes the first time. `./lab guide` opens
+[guide/guide.html](guide/guide.html) in your browser — that is the lab. Work straight through it: every Grafana
+view is a button in the page, every command has a copy button, and the answers stay hidden behind
+toggles until you open them.
+
+The same content in plain Markdown is [guide/participant-guide.md](guide/participant-guide.md),
+which is the source the page is generated from. Read it in a Markdown preview if you prefer it; a plain text
+editor shows every answer immediately.
 
 ## Commands
 
@@ -66,7 +84,7 @@ Run `./lab` with no arguments for the full list. The ones you need during the la
 ```text
 ./lab start                    Start the stack
 ./lab ready                    Verify every backend is serving data
-./lab links                    Print every prepared Grafana link
+./lab guide                    Open the lab guide in your browser
 ./lab traffic healthy          Generate a healthy baseline
 ./lab traffic incident         Generate the deterministic incident
 ./lab check metrics            Verify fresh metrics evidence
@@ -78,7 +96,9 @@ Run `./lab` with no arguments for the full list. The ones you need during the la
 If something goes wrong:
 
 ```text
+./lab logs checkout            Show a service's recent output (checkout|inventory|payment)
 ./lab ready                    Safe to re-run; backends can be slow on a cold start
+./lab links                    Print the four Grafana URLs, if you would rather not use the buttons
 ./lab restart-services         Re-emit readiness markers, then run ./lab ready again
 ./lab recover metrics          Restore the completed metrics checkpoint
 ./lab recover traces           Restore metrics + traces
@@ -94,8 +114,10 @@ If something goes wrong:
 | `missing Docker image(s)` | `./lab setup` has not run on this machine. |
 | `NOT READY: traces not serving data yet` | The backends are slow on a cold start. Run `./lab ready` again; if it persists, `./lab restart-services`. |
 | Port already allocated | Something else holds 3000, 4317, 4318, 8000, or 9090. Free it, then `./lab start`. |
-| Grafana Explore redirects to a dashboard | The anonymous role lost Explore access. `compose.yaml` must set `GF_AUTH_ANONYMOUS_ORG_ROLE: Editor`; `./lab ready` checks this. |
+| Grafana Explore redirects to a dashboard | The anonymous role lost Explore access. `workshop/compose.yaml` must set `GF_AUTH_ANONYMOUS_ORG_ROLE: Editor`; `./lab ready` checks this. |
 | A `check` command times out | `./lab recover <signal>` for the stage you are on. |
+| The guide's Grafana buttons open a connection error | The stack is not running. `./lab start`, then `./lab ready`. |
+| The guide looks out of date after editing the Markdown | `./lab build-guide` regenerates `guide.html` and `worksheet.html`; `./lab test` fails if they are stale. |
 
 ## Deterministic incident
 
@@ -121,6 +143,6 @@ Facilitators should certify the package on the target participant platform befor
 
 The command always restores the starter files and stops the stack on success, failure, or
 interruption. Rehearse on every supported operating system and CPU architecture before
-distribution. Recorded validation runs and platform notes live in [docs/](docs/), and the
+distribution. Recorded validation runs and platform notes live in [workshop/notes/](workshop/notes/), and the
 run-the-room instructions live in
-[facilitator/facilitator-guide.md](facilitator/facilitator-guide.md).
+[workshop/facilitator/facilitator-guide.md](workshop/facilitator/facilitator-guide.md).

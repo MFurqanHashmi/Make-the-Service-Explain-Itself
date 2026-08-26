@@ -1,0 +1,40 @@
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 236" role="img" aria-labelledby="fig-wf-title fig-wf-desc">
+      <title id="fig-wf-title">One trace as a waterfall of nested spans</title>
+      <desc id="fig-wf-desc">The root span is checkout POST /checkout and it succeeded with HTTP 200. Nested under it, inventory POST /reserve completes early with no error, and payment POST /authorize contains a child span named payment.amount_validation which is marked ERROR. Time runs left to right and depth of nesting runs top to bottom.</desc>
+
+      <text class="d-title" x="8" y="16">one request · one trace · fifteen spans</text>
+
+      <!-- root -->
+      <text class="d-mono" x="8" y="50">checkout POST /checkout</text>
+      <rect class="d-ok-soft" x="176" y="38" width="536" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="188" cy="47" r="3.4"/>
+      <text class="d-mono-soft" x="200" y="51">root · HTTP 200 · OK</text>
+
+      <!-- inventory -->
+      <text class="d-mono" x="20" y="88">inventory POST /reserve</text>
+      <rect class="d-ok-soft" x="196" y="76" width="46" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="207" cy="85" r="3.4"/>
+      <text class="d-mono-soft" x="250" y="89">721µs · no error · ruled out</text>
+
+      <!-- payment -->
+      <text class="d-mono" x="20" y="126">payment POST /authorize</text>
+      <rect class="d-ok-soft" x="262" y="114" width="428" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="273" cy="123" r="3.4"/>
+      <text class="d-mono-soft" x="286" y="127">HTTP 200 · OK</text>
+
+      <!-- validation -->
+      <text class="d-mono" x="32" y="164">payment.amount_validation</text>
+      <rect class="d-bad-soft" x="292" y="152" width="150" height="18" rx="4" stroke-width="1.4"/>
+      <path class="d-bad" d="M300 148 l7 7 -7 7 -7 -7z"/>
+      <text class="d-mono d-bad" x="452" y="168">ERROR</text><text class="d-mono-soft" x="496" y="168">· the span you added</text>
+
+      <line class="d-line" stroke-width="1" x1="176" y1="196" x2="712" y2="196"/>
+      <path class="d-line" stroke-width="1" d="M706 192 l6 4 -6 4"/>
+      <text class="d-label" x="176" y="212">time →</text>
+      <text class="d-label" x="8" y="212">nesting ↓</text>
+    </svg>
+  </div>
+  <figcaption><strong>Depth is nesting, width is duration.</strong> Checkout's HTTP request genuinely succeeded, so the root stays green; the red sits on the one span where your code made a judgement and recorded it.</figcaption>
+</figure>

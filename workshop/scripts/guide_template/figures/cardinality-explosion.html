@@ -1,0 +1,89 @@
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 320" role="img" aria-labelledby="fig-card-title fig-card-desc">
+      <title id="fig-card-title">What a counter stores, with and without order_id</title>
+      <desc id="fig-card-desc">On the left, 100 checkouts collapse into three stored rows with running totals of 50, 25 and 25, and the list stays three rows no matter how much traffic arrives. On the right, adding order_id to the same 100 checkouts produces 100 separate rows, each stuck at a total of 1, and the list grows by one row for every checkout forever.</desc>
+
+      <!-- left panel: bounded attributes -->
+      <text class="d-title" x="8" y="16">3 bounded attributes</text>
+      <text class="d-label" x="8" y="32">outcome · currency · discounted</text>
+
+      <g class="d-dot">
+        <circle cx="14" cy="52" r="2.4"/><circle cx="30" cy="52" r="2.4"/><circle cx="46" cy="52" r="2.4"/><circle cx="62" cy="52" r="2.4"/><circle cx="78" cy="52" r="2.4"/><circle cx="94" cy="52" r="2.4"/><circle cx="110" cy="52" r="2.4"/><circle cx="126" cy="52" r="2.4"/><circle cx="142" cy="52" r="2.4"/><circle cx="158" cy="52" r="2.4"/><circle cx="174" cy="52" r="2.4"/><circle cx="190" cy="52" r="2.4"/><circle cx="206" cy="52" r="2.4"/><circle cx="222" cy="52" r="2.4"/><circle cx="238" cy="52" r="2.4"/><circle cx="254" cy="52" r="2.4"/><circle cx="270" cy="52" r="2.4"/><circle cx="286" cy="52" r="2.4"/><circle cx="302" cy="52" r="2.4"/><circle cx="318" cy="52" r="2.4"/>
+        <circle cx="14" cy="64" r="2.4"/><circle cx="30" cy="64" r="2.4"/><circle cx="46" cy="64" r="2.4"/><circle cx="62" cy="64" r="2.4"/><circle cx="78" cy="64" r="2.4"/><circle cx="94" cy="64" r="2.4"/><circle cx="110" cy="64" r="2.4"/><circle cx="126" cy="64" r="2.4"/><circle cx="142" cy="64" r="2.4"/><circle cx="158" cy="64" r="2.4"/><circle cx="174" cy="64" r="2.4"/><circle cx="190" cy="64" r="2.4"/><circle cx="206" cy="64" r="2.4"/><circle cx="222" cy="64" r="2.4"/><circle cx="238" cy="64" r="2.4"/><circle cx="254" cy="64" r="2.4"/><circle cx="270" cy="64" r="2.4"/><circle cx="286" cy="64" r="2.4"/><circle cx="302" cy="64" r="2.4"/><circle cx="318" cy="64" r="2.4"/>
+      </g>
+      <text class="d-mono-soft" x="8" y="84">100 checkouts</text>
+      <path class="d-hair" stroke-width="1" d="M166 92 L60 108 M166 92 L166 108 M166 92 L272 108"/>
+      <text class="d-label" x="176" y="86">the backend keeps ↓</text>
+
+      <g>
+        <rect class="d-ok-soft" x="8" y="112" width="330" height="30" rx="6" stroke-width="1"/>
+        <text class="d-mono" x="20" y="131">success · CAD · false</text>
+        <path class="d-line" stroke-width="1.6" d="M250 134 h10 v-6 h10 v-7 h10 v-6 h10"/>
+        <text class="d-count" x="306" y="131">50</text>
+      </g>
+      <g>
+        <rect class="d-ok-soft" x="8" y="148" width="330" height="30" rx="6" stroke-width="1"/>
+        <text class="d-mono" x="20" y="167">success · USD · true</text>
+        <path class="d-line" stroke-width="1.6" d="M250 170 h10 v-5 h10 v-5 h10 v-4 h10"/>
+        <text class="d-count" x="306" y="167">25</text>
+      </g>
+      <g>
+        <rect class="d-bad-soft" x="8" y="184" width="330" height="30" rx="6" stroke-width="1"/>
+        <text class="d-mono" x="20" y="203">payment_rejected · CAD · true</text>
+        <path class="d-line" stroke-width="1.6" d="M250 206 h10 v-5 h10 v-5 h10 v-4 h10"/>
+        <text class="d-count" x="306" y="203">25</text>
+      </g>
+
+      <rect class="d-surface" x="8" y="228" width="330" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="20" y="248">3 rows. Forever.</text>
+      <text class="d-label" x="20" y="266">A million checkouts tomorrow: same 3 rows, bigger numbers.</text>
+
+      <!-- divider -->
+      <path class="d-hair" stroke-width="1" d="M370 8 V300"/>
+
+      <!-- right panel: order_id added -->
+      <text class="d-title" x="402" y="16">the same, plus order_id</text>
+      <text class="d-label" x="402" y="32">outcome · currency · discounted · order_id</text>
+
+      <g class="d-dot">
+        <circle cx="408" cy="52" r="2.4"/><circle cx="424" cy="52" r="2.4"/><circle cx="440" cy="52" r="2.4"/><circle cx="456" cy="52" r="2.4"/><circle cx="472" cy="52" r="2.4"/><circle cx="488" cy="52" r="2.4"/><circle cx="504" cy="52" r="2.4"/><circle cx="520" cy="52" r="2.4"/><circle cx="536" cy="52" r="2.4"/><circle cx="552" cy="52" r="2.4"/><circle cx="568" cy="52" r="2.4"/><circle cx="584" cy="52" r="2.4"/><circle cx="600" cy="52" r="2.4"/><circle cx="616" cy="52" r="2.4"/><circle cx="632" cy="52" r="2.4"/><circle cx="648" cy="52" r="2.4"/><circle cx="664" cy="52" r="2.4"/><circle cx="680" cy="52" r="2.4"/><circle cx="696" cy="52" r="2.4"/><circle cx="712" cy="52" r="2.4"/>
+        <circle cx="408" cy="64" r="2.4"/><circle cx="424" cy="64" r="2.4"/><circle cx="440" cy="64" r="2.4"/><circle cx="456" cy="64" r="2.4"/><circle cx="472" cy="64" r="2.4"/><circle cx="488" cy="64" r="2.4"/><circle cx="504" cy="64" r="2.4"/><circle cx="520" cy="64" r="2.4"/><circle cx="536" cy="64" r="2.4"/><circle cx="552" cy="64" r="2.4"/><circle cx="568" cy="64" r="2.4"/><circle cx="584" cy="64" r="2.4"/><circle cx="600" cy="64" r="2.4"/><circle cx="616" cy="64" r="2.4"/><circle cx="632" cy="64" r="2.4"/><circle cx="648" cy="64" r="2.4"/><circle cx="664" cy="64" r="2.4"/><circle cx="680" cy="64" r="2.4"/><circle cx="696" cy="64" r="2.4"/><circle cx="712" cy="64" r="2.4"/>
+      </g>
+      <text class="d-mono-soft" x="402" y="84">the same 100 checkouts</text>
+      <path class="d-hair" stroke-width="1" d="M560 92 L420 104 M560 92 L490 104 M560 92 L560 104 M560 92 L630 104 M560 92 L700 104"/>
+      <text class="d-label" x="570" y="86">the backend keeps ↓</text>
+
+      <g>
+        <rect class="d-bad-soft" x="402" y="108" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="123">payment_rejected·CAD·true·ord-e6d778add6</text>
+        <text class="d-count" x="700" y="123">1</text>
+      </g>
+      <g>
+        <rect class="d-bad-soft" x="402" y="134" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="149">payment_rejected·CAD·true·ord-5c21f308dc</text>
+        <text class="d-count" x="700" y="149">1</text>
+      </g>
+      <g opacity="0.75">
+        <rect class="d-bad-soft" x="402" y="160" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="175">payment_rejected·CAD·true·ord-b70a1c94e2</text>
+        <text class="d-count" x="700" y="175">1</text>
+      </g>
+      <g opacity="0.5">
+        <rect class="d-bad-soft" x="402" y="186" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="201">payment_rejected·CAD·true·ord-3f8d20ab77</text>
+        <text class="d-count" x="700" y="201">1</text>
+      </g>
+      <g opacity="0.25">
+        <rect class="d-bad-soft" x="402" y="212" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="227">payment_rejected·CAD·true·ord-c41e7d0b56</text>
+        <text class="d-count" x="700" y="227">1</text>
+      </g>
+      <text class="d-mono-soft" x="402" y="248">…96 more rows from this run alone</text>
+
+      <text class="d-title" x="402" y="270">1 row per checkout. Kept forever.</text>
+      <text class="d-label" x="402" y="288">At 1,000 checkouts a minute: 1.4 million new rows a day.</text>
+    </svg>
+  </div>
+  <figcaption><strong>A counter stores one row per unique combination of attribute values</strong> — each row a running total that only ticks upward. Bounded attributes keep that list short forever. <code>order_id</code> never repeats, so every checkout invents a row of its own that will read <code>1</code> for the rest of its life.</figcaption>
+</figure>

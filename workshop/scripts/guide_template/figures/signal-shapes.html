@@ -1,0 +1,53 @@
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 250" role="img" aria-labelledby="fig-shapes-title fig-shapes-desc">
+      <title id="fig-shapes-title">What each signal physically stores</title>
+      <desc id="fig-shapes-desc">A counter stores a handful of running totals, one per attribute combination, at a cost that does not grow with traffic. A trace stores one nested record per request, showing where an operation failed. A structured event stores one detailed record per occurrence, carrying the values that explain why.</desc>
+
+      <!-- counter -->
+      <rect class="d-surface" x="8" y="8" width="228" height="196" rx="10" stroke-width="1"/>
+      <text class="d-title" x="24" y="32">Counter</text>
+      <text class="d-label" x="24" y="50">Detect · Scope</text>
+      <rect class="d-ok-soft" x="24" y="64" width="196" height="18" rx="4" stroke-width="1"/>
+      <text class="d-mono" x="34" y="77">success · CAD</text>
+      <text class="d-count" x="192" y="77">50</text>
+      <rect class="d-ok-soft" x="24" y="88" width="196" height="18" rx="4" stroke-width="1"/>
+      <text class="d-mono" x="34" y="101">success · USD</text>
+      <text class="d-count" x="192" y="101">25</text>
+      <rect class="d-bad-soft" x="24" y="112" width="196" height="18" rx="4" stroke-width="1"/>
+      <text class="d-mono" x="34" y="125">rejected · CAD</text>
+      <text class="d-count" x="192" y="125">25</text>
+      <text class="d-label" x="24" y="154">A few rows, whatever the traffic.</text>
+      <text class="d-label" x="24" y="172">Cheap to keep, cheap to ask.</text>
+      <text class="d-mono-soft" x="24" y="192">no individual request inside</text>
+
+      <!-- trace -->
+      <rect class="d-surface" x="256" y="8" width="228" height="196" rx="10" stroke-width="1"/>
+      <text class="d-title" x="272" y="32">Trace</text>
+      <text class="d-label" x="272" y="50">Isolate</text>
+      <rect class="d-ok-soft" x="272" y="64" width="196" height="12" rx="3" stroke-width="1"/>
+      <rect class="d-ok-soft" x="282" y="80" width="52" height="12" rx="3" stroke-width="1"/>
+      <rect class="d-ok-soft" x="282" y="96" width="150" height="12" rx="3" stroke-width="1"/>
+      <rect class="d-bad-soft" x="292" y="112" width="86" height="12" rx="3" stroke-width="1"/>
+      <text class="d-label" x="272" y="154">One record per request, nested,</text>
+      <text class="d-label" x="272" y="172">crossing every service boundary.</text>
+      <text class="d-mono-soft" x="272" y="192">no values behind the decision</text>
+
+      <!-- event -->
+      <rect class="d-surface" x="504" y="8" width="228" height="196" rx="10" stroke-width="1"/>
+      <text class="d-title" x="520" y="32">Structured event</text>
+      <text class="d-label" x="520" y="50">Explain</text>
+      <rect class="d-warn-soft" x="520" y="60" width="196" height="70" rx="6" stroke-width="1.2"/>
+      <text class="d-mono" x="530" y="76">reason_code</text>
+      <text class="d-mono-soft" x="530" y="92">expected 1000</text>
+      <text class="d-mono-soft" x="530" y="106">received 1001</text>
+      <text class="d-mono-soft" x="530" y="122">HALF_UP vs HALF_EVEN</text>
+      <text class="d-label" x="520" y="154">One rich record per occurrence,</text>
+      <text class="d-label" x="520" y="172">correlated to the failing span.</text>
+      <text class="d-mono-soft" x="520" y="192">too detailed to aggregate over</text>
+
+      <text class="d-label" x="8" y="230">Each signal gets the cardinality it can afford — which is why none of the three can stand in for the others.</text>
+    </svg>
+  </div>
+  <figcaption><strong>Three storage shapes, three jobs.</strong> The counter is an aggregate with no requests in it, the trace keeps per-request structure without the values, and the event keeps the values for one occurrence.</figcaption>
+</figure>

@@ -6,7 +6,7 @@ cmd="${1:-help}"; shift || true
 IMAGE="observability-lab-python:1.0"
 LGTM_IMAGE="grafana/otel-lgtm:0.29.0"
 # --progress quiet keeps "Container xxx Created" noise out of every command's output.
-compose=(docker compose --progress quiet)
+compose=(docker compose --progress quiet -f "$ROOT/workshop/compose.yaml")
 
 require_docker(){
   if ! docker info >/dev/null 2>&1; then
@@ -36,14 +36,14 @@ wait_health(){
 }
 restore(){
   local cp="$1"
-  cp "checkpoints/$cp/checkout.py" checkout/app/checkout.py
-  cp "checkpoints/$cp/validation.py" payment/app/validation.py
+  cp "workshop/checkpoints/$cp/checkout.py" services/checkout/app/checkout.py
+  cp "workshop/checkpoints/$cp/validation.py" services/payment/app/validation.py
 }
 run_tools(){ "${compose[@]}" run --rm --no-deps -T tools "$@"; }
 case "$cmd" in
   setup)
     docker pull "$LGTM_IMAGE"
-    docker build -t "$IMAGE" -f docker/python.Dockerfile .
+    docker build -t "$IMAGE" -f workshop/docker/python.Dockerfile .
     echo "SETUP COMPLETE: run './lab start'"
     ;;
   start)
@@ -54,12 +54,12 @@ case "$cmd" in
     "${compose[@]}" up -d --no-build --pull never lgtm inventory payment checkout
     echo "Services created. Waiting for checkout to report healthy..."
     wait_health
-    echo "STARTED: run './lab ready', then './lab links'"
+    echo "STARTED: run './lab ready', then './lab guide'"
     ;;
   ready)
     wait_health
-    run_tools python /workspace/scripts/check_ready.py
-    run_tools python /workspace/scripts/check_grafana.py
+    run_tools python /workspace/workshop/scripts/check_ready.py
+    run_tools python /workspace/workshop/scripts/check_grafana.py
     ;;
   restart-services)
     # The readiness markers are emitted once, at import. If a backend was not
@@ -69,11 +69,11 @@ case "$cmd" in
     echo "RESTARTED: run './lab ready' again"
     ;;
   traffic)
-    run_tools python /workspace/traffic/generate.py "${1:-incident}"
+    run_tools python /workspace/workshop/traffic/generate.py "${1:-incident}"
     ;;
   check)
     signal="${1:?metrics|traces|logs required}"
-    run_tools python "/workspace/scripts/check_${signal}.py"
+    run_tools python "/workspace/workshop/scripts/check_${signal}.py"
     ;;
   recover)
     signal="${1:?metrics|traces|logs required}"
@@ -97,10 +97,23 @@ case "$cmd" in
     echo "RESET: starter code and empty telemetry state restored"
     ;;
   test)
-    run_tools sh -c 'cd /workspace && python -m unittest discover -s tests -t . -v'
+    run_tools sh -c 'cd /workspace && python -m unittest discover -s workshop/tests -t . -v'
     ;;
-  links) run_tools python /workspace/scripts/links.py;;
-  validate-full) exec "$ROOT/scripts/validate_full.sh";;
+  links) run_tools python /workspace/workshop/scripts/links.py;;
+  logs)
+    # Participants need this when a paste stops a service reloading, and it
+    # keeps Docker knowledge out of the guide.
+    "${compose[@]}" logs --tail "${2:-20}" "${1:?checkout|inventory|payment required}"
+    ;;
+  guide)
+    # The page is committed, so this works with the stack stopped and offline.
+    doc="${1:-guide}"
+    case "$doc" in guide) file=guide/guide.html;; worksheet) file=guide/worksheet.html;; *) echo "Usage: ./lab guide [guide|worksheet]" >&2; exit 2;; esac
+    echo "Opening $file. Its Grafana buttons need './lab start' to be running."
+    open "$ROOT/$file"
+    ;;
+  build-guide) run_tools python /workspace/workshop/scripts/build_guide.py;;
+  validate-full) exec "$ROOT/workshop/scripts/validate_full.sh";;
   stop) "${compose[@]}" stop;;
   export-images) docker save -o "${1:-observability-lab-images.tar}" "$LGTM_IMAGE" "$IMAGE";;
   import-images) docker load -i "${1:?image archive required}";;
@@ -116,12 +129,14 @@ Setup
 Running the lab
   start                    Start the stack
   ready                    Verify every backend is serving data
+  guide [worksheet]        Open the lab guide (guide.html) in your browser
   links                    Print every prepared Grafana link
   traffic healthy|incident Generate a traffic profile
   check metrics|traces|logs Verify fresh evidence for one signal
   stop                     Stop containers, keep telemetry and code
 
 If something goes wrong
+  logs SERVICE [LINES]     Show a service's recent output (checkout|inventory|payment)
   ready                    Safe to re-run; backends can be slow to start
   restart-services         Re-emit readiness markers, then run 'ready' again
   recover metrics|traces|logs  Restore that checkpoint and re-verify
@@ -130,6 +145,7 @@ If something goes wrong
 
 Maintenance
   test                     Run unit and contract tests in-container
+  build-guide              Rebuild guide.html and worksheet.html from the Markdown
   validate-full            Validate the complete path end to end
 USAGE
     ;;

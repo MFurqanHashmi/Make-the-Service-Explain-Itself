@@ -1,0 +1,1701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkout is quietly failing</title>
+<style>
+/* ---------------------------------------------------------------- tokens */
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface-sunk: #f3f1ed;
+  --ink: #1b1a18;
+  --ink-soft: #57534e;
+  --ink-faint: #8a847c;
+  --line: #e2ddd4;
+  --line-strong: #cfc8bc;
+  --amber: #a35b06;
+  --amber-bg: #fdf3e3;
+  --red: #b42318;
+  --red-bg: #fdf0ee;
+  --green: #04703f;
+  --green-bg: #eaf6ef;
+  --info: #1f5fa9;
+  --info-bg: #eef4fb;
+  --code-bg: #1d1f26;
+  --code-ink: #e9e6df;
+  --code-accent: #7fd1a3;
+  --focus: #1f5fa9;
+  --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 10px;
+  --sidebar: 274px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131418;
+    --surface: #1a1c21;
+    --surface-sunk: #212429;
+    --ink: #e9e6e1;
+    --ink-soft: #b3ada4;
+    --ink-faint: #8b857c;
+    --line: #2c2f36;
+    --line-strong: #3d414a;
+    --amber: #eeb45c;
+    --amber-bg: #2a2115;
+    --red: #f28b82;
+    --red-bg: #2c1a19;
+    --green: #6fd39b;
+    --green-bg: #14261d;
+    --info: #7fb2f0;
+    --info-bg: #172432;
+    --code-bg: #0f1116;
+    --code-ink: #e9e6df;
+    --focus: #7fb2f0;
+  }
+}
+
+/* ------------------------------------------------------------------ base */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-text-size-adjust: 100%;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.6rem 1rem;
+  z-index: 100;
+}
+.skip:focus { left: 0.5rem; top: 0.5rem; }
+
+a { color: var(--info); text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------- layout */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar) minmax(0, 1fr);
+  gap: 2.5rem;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 1.5rem 6rem;
+}
+
+.content {
+  max-width: 68ch;
+  padding-top: 2.5rem;
+}
+
+/* Prose stays at a readable measure; code, tables and diagrams are allowed to
+   run into the space beside it rather than scrolling inside a narrow box. */
+@media (min-width: 1001px) {
+  .card,
+  .diagram,
+  .table-wrap,
+  .shot,
+  pre.plain {
+    width: min(800px, calc(100% + 9rem));
+  }
+  .reveal .card,
+  .reveal .table-wrap,
+  .reveal pre.plain { width: auto; }
+}
+
+/* -------------------------------------------------------------- sidebar */
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 2.5rem 0.25rem 3rem;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  scrollbar-width: thin;
+}
+
+.nav-label {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.nav-label:first-child { margin-top: 0; }
+
+.views { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+
+.view-button,
+.view-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--sans);
+  text-decoration: none;
+  color: var(--info);
+  background: var(--info-bg);
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+
+.view-button {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.view-button:hover { border-color: var(--info); background: var(--info-bg); }
+.view-button .view-arrow { margin-left: auto; color: var(--info); }
+
+.view-link {
+  padding: 0.05em 0.45em;
+  font-size: 0.92em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.view-link:hover { text-decoration: underline; }
+.print-url { display: none; }
+
+.nav-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--line);
+}
+.nav-steps li { list-style: none; }
+.nav-steps a {
+  display: flex;
+  gap: 0.55rem;
+  padding: 0.4rem 0.6rem;
+  margin-left: -2px;
+  border-left: 2px solid transparent;
+  color: var(--ink-soft);
+  text-decoration: none;
+  line-height: 1.35;
+}
+.nav-steps a:hover { color: var(--ink); background: var(--surface-sunk); }
+.nav-steps a.current {
+  border-left-color: var(--red);
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--surface);
+}
+.nav-time {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  padding-top: 0.15rem;
+  min-width: 2.8em;
+}
+.nav-steps a.current .nav-time { color: var(--red); }
+
+.readout { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; }
+.readout-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.35rem;
+  color: var(--ink-faint);
+  border-radius: 5px;
+}
+.readout-item[data-answered="yes"] { color: var(--green); background: var(--green-bg); }
+.readout-item[data-answered="no"] { color: var(--ink-soft); }
+.readout-glyph { font-size: 0.8rem; width: 1.1em; text-align: center; }
+
+/* --------------------------------------------------------------- topbar */
+.topbar {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.9rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--sans);
+}
+.topbar-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-toggle,
+.topbar-views > summary {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+.topbar-views > summary::-webkit-details-marker { display: none; }
+.topbar-views { position: relative; }
+.topbar-views[open] > summary { border-color: var(--info); }
+.topbar-views .views {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  width: 17rem;
+  padding: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
+  z-index: 30;
+}
+
+/* ------------------------------------------------------------ typography */
+.doc-title {
+  font-size: 2.35rem;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin: 0 0 1.25rem;
+  text-wrap: balance;
+}
+
+h2, h3 { font-family: var(--sans); text-wrap: pretty; }
+h2 { font-size: 1.5rem; line-height: 1.2; margin: 0; letter-spacing: -0.01em; }
+h3 {
+  font-size: 1.02rem;
+  margin: 2.25rem 0 0.6rem;
+  letter-spacing: 0.005em;
+}
+
+p { margin: 0 0 1.05rem; }
+strong { font-weight: 700; }
+em { font-style: italic; }
+
+.list { margin: 0 0 1.2rem; padding-left: 1.25rem; }
+.list li { margin-bottom: 0.5rem; }
+.list li::marker { color: var(--ink-faint); }
+
+li.task { list-style: none; margin-left: -1.25rem; display: flex; gap: 0.6rem; }
+.task-box {
+  flex: none;
+  width: 0.95em;
+  height: 0.95em;
+  margin-top: 0.35em;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 3px;
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.05em 0.32em;
+  word-break: break-word;
+}
+
+.blank {
+  display: inline-block;
+  min-width: 9ch;
+  border-bottom: 1.5px solid var(--line-strong);
+  margin-bottom: -0.15em;
+}
+
+.rule {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 3rem 0;
+}
+.content > .rule { display: none; }
+
+/* ---------------------------------------------------------------- steps */
+.step {
+  margin: 0 0 3.5rem;
+  scroll-margin-top: 4.5rem;
+}
+.step-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding-bottom: 0.7rem;
+  margin-bottom: 1.4rem;
+  border-bottom: 2px solid var(--line);
+}
+.step-badge {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--surface);
+  background: var(--ink);
+  border-radius: 6px;
+  padding: 0.1rem 0.5rem;
+}
+.step-time {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--red);
+  background: var(--red-bg);
+  border-radius: 5px;
+  padding: 0.1rem 0.45rem;
+  order: 3;
+}
+.step-head h2 { flex: 1 1 14rem; }
+
+/* ------------------------------------------------------------- callouts */
+.callout {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface);
+}
+.callout p:last-child { margin-bottom: 0; }
+.callout-label {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 0.3rem;
+  color: var(--ink-faint);
+}
+.callout-move { border-left-color: var(--amber); background: var(--amber-bg); }
+.callout-move .callout-label { color: var(--amber); }
+.callout-checkpoint { border-left-color: var(--green); background: var(--green-bg); }
+.callout-checkpoint .callout-label { color: var(--green); }
+.callout-prediction { border-left-color: var(--info); background: var(--info-bg); }
+.callout-prediction .callout-label { color: var(--info); }
+.callout-note { border-left-color: var(--line-strong); background: var(--surface-sunk); }
+
+/* A prediction and the reveal that answers it read as one card. */
+.prediction { margin: 1.5rem 0; }
+.prediction .callout {
+  margin: 0;
+  border-radius: 0 var(--radius) 0 0;
+}
+.prediction .reveal {
+  margin: 0;
+  border-left-color: var(--info);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) 0;
+}
+
+.quote {
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--line-strong);
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------ code cards */
+.card {
+  margin: 1.35rem 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.card-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.8rem;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--line);
+}
+.card-label {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.copy {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.copy:hover { color: var(--ink); border-color: var(--ink-faint); }
+.copy[data-copied] { color: var(--green); border-color: var(--green); }
+
+.card pre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.83rem;
+  line-height: 1.6;
+}
+
+.terminal { border-color: var(--code-bg); }
+.terminal .card-bar { background: var(--code-bg); border-bottom-color: #000; }
+.terminal .card-label { color: #9aa1ad; }
+.terminal .copy { background: transparent; border-color: #3a3f4a; color: #c4c9d2; }
+.terminal .copy:hover { color: #fff; border-color: #6d7481; }
+.terminal .copy[data-copied] { color: var(--code-accent); border-color: var(--code-accent); }
+.terminal pre { background: var(--code-bg); color: var(--code-ink); }
+.terminal .cmd { display: block; }
+.terminal .cmd::before {
+  content: "$ ";
+  color: var(--code-accent);
+  user-select: none;
+}
+
+.code pre { background: var(--surface); }
+.code code { background: none; border: 0; padding: 0; font-size: 1em; }
+
+pre.plain {
+  margin: 1.35rem 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+pre code { background: none; border: 0; padding: 0; }
+
+/* ------------------------------------------------------------- reveals */
+.reveal {
+  margin: 1.35rem 0;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--surface);
+}
+.reveal > summary {
+  cursor: pointer;
+  padding: 0.7rem 1rem;
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  list-style: none;
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+}
+.reveal > summary::-webkit-details-marker { display: none; }
+.reveal > summary::before {
+  content: "▸";
+  font-size: 0.75em;
+  color: var(--ink-faint);
+  transition: transform 0.15s ease;
+}
+.reveal[open] > summary::before { transform: rotate(90deg); }
+.reveal > summary:hover { color: var(--ink); }
+.reveal-body { padding: 0 1rem 0.35rem; border-top: 1px solid var(--line); }
+.reveal-body > *:first-child { margin-top: 1rem; }
+
+.reveal-answer { border-left-color: var(--info); }
+.reveal-answer > summary { color: var(--info); }
+.reveal-spoiler { border-left-color: var(--amber); }
+.reveal-spoiler > summary { color: var(--amber); }
+.reveal-verify { border-left-color: var(--green); }
+.reveal-verify > summary { color: var(--green); }
+
+/* --------------------------------------------------------------- tables */
+.table-wrap {
+  margin: 1.35rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 0.87rem;
+}
+th, td {
+  text-align: left;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+th {
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: var(--surface-sunk);
+}
+tbody tr:last-child td { border-bottom: 0; }
+td code { font-size: 0.82em; }
+
+/* ---------------------------------------------------------- state pills */
+.state-grid {
+  list-style: none;
+  margin: 1.35rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.pill {
+  display: grid;
+  grid-template-columns: 1.6rem 6.2rem 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface);
+  font-family: var(--sans);
+  font-size: 0.88rem;
+}
+.pill-yes { border-left-color: var(--green); background: var(--green-bg); }
+.pill-no { border-left-color: var(--line-strong); }
+.pill-name { font-weight: 700; }
+.pill-yes .pill-name { color: var(--green); }
+.pill-no .pill-name { color: var(--ink-soft); }
+.pill-reason { color: var(--ink-soft); }
+
+/* --------------------------------------------------------- screenshots */
+.shot { margin: 1.5rem 0; }
+.shot-zoom {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  cursor: zoom-in;
+}
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption {
+  margin-top: 0.5rem;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  line-height: 1.45;
+}
+
+.lightbox[hidden] { display: none; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgb(12 12 14 / 0.88);
+}
+.lightbox img {
+  max-width: 100%;
+  max-height: 92vh;
+  border-radius: 8px;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.5);
+}
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  font-size: 1.8rem;
+  line-height: 1;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------- diagrams */
+.diagram {
+  margin: 1.6rem 0;
+  padding: 1.1rem 1.1rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.diagram-scroll { overflow-x: auto; }
+.diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 380px;
+  color: var(--ink);
+  font-family: var(--sans);
+}
+.diagram figcaption {
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.diagram .d-label { font-family: var(--sans); font-size: 11px; fill: var(--ink-soft); }
+.diagram .d-title { font-family: var(--sans); font-size: 12px; font-weight: 700; fill: var(--ink); }
+.diagram .d-mono { font-family: var(--mono); font-size: 10.5px; fill: var(--ink); }
+.diagram .d-mono-soft { font-family: var(--mono); font-size: 10px; fill: var(--ink-faint); }
+.diagram .d-count { font-family: var(--mono); font-size: 12px; font-weight: 700; fill: var(--ink); }
+.diagram .d-surface { fill: var(--surface-sunk); stroke: var(--line-strong); }
+.diagram .d-line { stroke: var(--line-strong); fill: none; }
+.diagram .d-hair { stroke: var(--line); fill: none; }
+.diagram .d-ok { fill: var(--green); }
+.diagram .d-ok-soft { fill: var(--green-bg); stroke: var(--green); }
+.diagram .d-bad { fill: var(--red); }
+.diagram .d-bad-soft { fill: var(--red-bg); stroke: var(--red); }
+.diagram .d-warn { fill: var(--amber); }
+.diagram .d-warn-soft { fill: var(--amber-bg); stroke: var(--amber); }
+.diagram .d-info { fill: var(--info); }
+.diagram .d-info-soft { fill: var(--info-bg); stroke: var(--info); }
+.diagram .d-dot { fill: var(--ink-faint); }
+
+/* ----------------------------------------------------------- responsive */
+@media (max-width: 1000px) {
+  body { font-size: 16px; }
+  .topbar { display: flex; }
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 0 1.1rem 5rem;
+  }
+  .sidebar {
+    display: none;
+    position: static;
+    max-height: none;
+    padding: 1rem 0 0.5rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .sidebar.open { display: block; }
+  .sidebar .views { display: none; }
+  .content { padding-top: 1.75rem; margin-inline: auto; }
+  .step { scroll-margin-top: 3.5rem; }
+  .pill { grid-template-columns: 1.4rem 1fr; }
+  .pill-reason { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
+
+html { scroll-behavior: smooth; }
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  body { font-size: 11pt; background: #fff; color: #000; }
+  .topbar, .sidebar, .copy, .skip, .lightbox { display: none !important; }
+  .shell { display: block; padding: 0; max-width: none; }
+  .content { max-width: none; padding: 0; }
+  .reveal-body { display: block !important; }
+  .card, .callout, .reveal, .pill, .diagram, .shot { break-inside: avoid; }
+  .shot img { max-height: 9cm; width: auto; }
+  .print-url {
+    display: inline;
+    font-family: var(--mono);
+    font-size: 0.7em;
+    color: #555;
+    word-break: break-all;
+  }
+  .view-link { white-space: normal; }
+  a { color: #000; }
+}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to the guide</a>
+
+<header class="topbar">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar">
+    <span aria-hidden="true">☰</span> Steps
+  </button>
+  <p class="topbar-title">Checkout is quietly failing</p>
+  <details class="topbar-views">
+    <summary>Open a view <span aria-hidden="true">↗</span></summary>
+    <ul class="views"><li><a class="view-button" href="http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s" target="_blank" rel="noopener"><span class="view-name">Runtime and checkout metrics</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s</span></a></li><li><a class="view-button" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Failed payment-validation traces</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a></li><li><a class="view-button" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Structured payment-validation events</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a></li><li><a class="view-button" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Noisy starting logs</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a></li></ul>
+  </details>
+</header>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <nav aria-label="Guide navigation">
+      <p class="nav-label">Live views</p>
+      <ul class="views"><li><a class="view-button" href="http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s" target="_blank" rel="noopener"><span class="view-name">Runtime and checkout metrics</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s</span></a></li><li><a class="view-button" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Failed payment-validation traces</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a></li><li><a class="view-button" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Structured payment-validation events</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a></li><li><a class="view-button" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Noisy starting logs</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a></li></ul>
+      <p class="nav-label">The incident</p>
+      <ol class="nav-steps"><li><a href="#before-you-start" data-nav="before-you-start"><span class="nav-time">&nbsp;</span><span class="nav-title">Before you start</span></a></li><li><a href="#the-system-you-are-on-call-for" data-nav="the-system-you-are-on-call-for"><span class="nav-time">&nbsp;</span><span class="nav-title">The system you are on call for</span></a></li><li><a href="#what-you-will-be-asked" data-nav="what-you-will-be-asked"><span class="nav-time">&nbsp;</span><span class="nav-title">What you will be asked</span></a></li><li><a href="#0-get-your-tools-up" data-nav="0-get-your-tools-up"><span class="nav-time">&nbsp;</span><span class="nav-title">Get your tools up</span></a></li><li><a href="#1-three-minutes-with-what-you-have" data-nav="1-three-minutes-with-what-you-have"><span class="nav-time">09:15</span><span class="nav-title">Three minutes with what you have</span></a></li><li><a href="#2-how-bad-is-it-and-who-is-affected" data-nav="2-how-bad-is-it-and-who-is-affected"><span class="nav-time">09:31</span><span class="nav-title">How bad is it, and who is affected?</span></a></li><li><a href="#3-where-did-it-break" data-nav="3-where-did-it-break"><span class="nav-time">09:48</span><span class="nav-title">Where did it break?</span></a></li><li><a href="#4-why-did-it-break" data-nav="4-why-did-it-break"><span class="nav-time">10:03</span><span class="nav-title">Why did it break?</span></a></li><li><a href="#5-do-it-again-cold" data-nav="5-do-it-again-cold"><span class="nav-time">10:20</span><span class="nav-title">Do it again, cold</span></a></li><li><a href="#6-the-retro" data-nav="6-the-retro"><span class="nav-time">11:00</span><span class="nav-title">The retro</span></a></li><li><a href="#stand-down" data-nav="stand-down"><span class="nav-time">&nbsp;</span><span class="nav-title">Stand down</span></a></li></ol>
+      <p class="nav-label">What you can answer</p>
+      <ul class="readout" id="readout"><li class="readout-item" data-readout="detect"><span class="readout-glyph" aria-hidden="true">—</span>Detect</li><li class="readout-item" data-readout="scope"><span class="readout-glyph" aria-hidden="true">—</span>Scope</li><li class="readout-item" data-readout="isolate"><span class="readout-glyph" aria-hidden="true">—</span>Isolate</li><li class="readout-item" data-readout="explain"><span class="readout-glyph" aria-hidden="true">—</span>Explain</li></ul>
+    </nav>
+  </aside>
+
+  <main class="content" id="content">
+<h1 class="doc-title">Checkout is quietly failing</h1>
+<aside class="callout callout-note"><p class="callout-label">How to read this</p><p><strong>This is the source text of the lab guide.</strong> The version to work from is <code>guide.html</code> — run <code>./lab guide</code> — which adds one-click Grafana views, copy buttons and diagrams. If you would rather stay here, read it in a Markdown preview (<code>Cmd+Shift+V</code> in VS Code): both versions hide answers and screenshots behind toggles, and a plain text editor shows them all immediately.</p></aside>
+<p><strong>09:12.</strong> You are on call for checkout. A payments teammate messages you: <em>&quot;a few customers are saying checkout does nothing.&quot;</em></p>
+<p>No alert fired. Every dashboard you have is green. Every request in the last hour returned HTTP 200. Nobody can tell you how many customers, or which ones, or what &quot;does nothing&quot; means.</p>
+<p>You are going to work this incident to a root cause. You cannot get there with the telemetry this service ships with today, so three times along the way you will stop, add one small piece of instrumentation to the running system, and use it to answer the question in front of you. Every code block and every Grafana view is supplied — you never configure the telemetry stack or write a query.</p>
+<section class="step" id="before-you-start" data-step="before-you-start" data-detect="unknown" data-scope="unknown" data-isolate="unknown" data-explain="unknown"><header class="step-head"><h2 id="before-you-start-title">Before you start</h2></header><p>The stack must already be built. If you have not done it yet, run <code>./lab setup</code> once while online (see <a href="../README.md">README.md</a>). It only has to happen once.</p></section>
+<section class="step" id="the-system-you-are-on-call-for" data-step="the-system-you-are-on-call-for" data-detect="unknown" data-scope="unknown" data-isolate="unknown" data-explain="unknown"><header class="step-head"><h2 id="the-system-you-are-on-call-for-title">The system you are on call for</h2></header><figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 196" role="img" aria-labelledby="fig-map-title fig-map-desc">
+      <title id="fig-map-title">The checkout system you are on call for</title>
+      <desc id="fig-map-desc">A traffic generator sends checkouts to the Checkout API, which calls the Inventory service and the Payment service. Every checkout returns HTTP 200 to the caller, whether the business outcome succeeded or was rejected.</desc>
+
+      <rect class="d-surface" x="8" y="66" width="132" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="24" y="90">Traffic generator</text>
+      <text class="d-mono-soft" x="24" y="107">100 checkouts a run</text>
+
+      <path class="d-line" stroke-width="1.4" d="M140 92 h72"/>
+      <path class="d-line" stroke-width="1.4" d="M206 86 l6 6 -6 6"/>
+
+      <rect class="d-info-soft" x="212" y="58" width="150" height="68" rx="8" stroke-width="1.2"/>
+      <text class="d-title" x="230" y="84">Checkout API</text>
+      <text class="d-mono-soft" x="230" y="102">decides the outcome</text>
+      <text class="d-mono-soft" x="230" y="118">and returns 200</text>
+
+      <path class="d-line" stroke-width="1.4" d="M362 78 h60 l0 -34 h60"/>
+      <path class="d-line" stroke-width="1.4" d="M476 38 l6 6 -6 6"/>
+      <path class="d-line" stroke-width="1.4" d="M362 106 h60 l0 40 h60"/>
+      <path class="d-line" stroke-width="1.4" d="M476 140 l6 6 -6 6"/>
+
+      <rect class="d-surface" x="482" y="18" width="150" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="500" y="42">Inventory service</text>
+      <text class="d-mono-soft" x="500" y="59">reserves stock</text>
+
+      <rect class="d-surface" x="482" y="120" width="150" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="500" y="144">Payment service</text>
+      <text class="d-mono-soft" x="500" y="161">validates the amount</text>
+
+      <path class="d-hair" stroke-width="1.2" stroke-dasharray="5 4" d="M262 126 v34 h-150 v-42"/>
+      <path class="d-hair" stroke-width="1.2" d="M106 124 l6 -6 6 6"/>
+      <rect class="d-ok-soft" x="150" y="151" width="74" height="18" rx="9" stroke-width="1"/>
+      <text class="d-mono" x="161" y="164">HTTP 200</text>
+      <text class="d-label" x="240" y="164">back to the caller every time —</text>
+      <text class="d-label" x="240" y="182">even when the checkout was rejected</text>
+    </svg>
+  </div>
+  <figcaption><strong>Three services, one deterministic incident.</strong> The response code is the same on every path, which is exactly why it tells you nothing about whether checkout is doing its job.</figcaption>
+</figure>
+<p>This is the same checkout world as the presentation, with a different incident. The services are already running locally in Docker. <strong>Every request returns HTTP 200, even when the checkout business outcome is rejected.</strong></p></section>
+<section class="step" id="what-you-will-be-asked" data-step="what-you-will-be-asked" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><h2 id="what-you-will-be-asked-title">What you will be asked</h2></header><p>Four questions decide how this hour goes. Right now you can answer none of them, and you will keep coming back to this table as the incident develops.</p>
+<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
+<hr class="rule"><ul class="state-grid"><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Detect</span><span class="pill-reason">is checkout behaving correctly?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Scope</span><span class="pill-reason">which requests are affected?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">where did one operation fail?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">what application condition caused it?</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<section class="step" id="0-get-your-tools-up" data-step="0-get-your-tools-up" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><span class="step-badge">0</span><h2 id="0-get-your-tools-up-title">Get your tools up</h2></header><p>Before the first question lands, make sure the environment is running.</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab start
+./lab ready">Copy</button></div><pre><code><span class="cmd">./lab start</span>
+<span class="cmd">./lab ready</span></code></pre></div>
+<p><code>./lab start</code> can take two to three minutes the first time. Expected readiness message:</p>
+<pre class="plain"><code>READY: checkout, inventory, payment, metrics, traces, logs, and Grafana are available
+PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlation are provisioned</code></pre>
+<p>If <code>./lab ready</code> reports that a backend is not serving data yet, <strong>run it again</strong> — the telemetry backends sometimes need a second attempt on a cold start. If it still fails, run <code>./lab restart-services</code> and then <code>./lab ready</code>.</p>
+<p>Every Grafana view this lab uses is a button in the guide, and <code>./lab links</code> prints the same four URLs if you would rather keep them in a terminal. All views use a relative 15-minute time range. Grafana needs no login — the lab runs it with anonymous access, so ignore the &quot;Sign in&quot; button in the corner.</p>
+<h3 id="where-you-will-be-making-changes">Where you will be making changes</h3>
+<p>When the moment comes, it is two files under <code>services/</code>, three markers, nothing else:</p>
+<div class="table-wrap"><table><thead><tr><th>Section</th><th>File</th><th>Marker</th></tr></thead><tbody><tr><td>2. Metrics</td><td><code>services/checkout/app/checkout.py</code></td><td><code># LAB 1: record checkout result</code></td></tr><tr><td>3. Traces</td><td><code>services/payment/app/validation.py</code></td><td><code># LAB 2: replace validation evidence block</code></td></tr><tr><td>4. Structured logs</td><td><code>services/payment/app/validation.py</code></td><td><code># LAB 3: record amount validation rejection</code></td></tr></tbody></table></div>
+<p>Open the repository in your editor now. Both services run with hot reload, so saving the file is the entire deploy step — you never rebuild or restart a container during this lab.</p>
+<h3 id="if-an-edit-goes-wrong">If an edit goes wrong</h3>
+<p>A paste at the wrong indentation stops the service reloading, and the next traffic run fails instead of producing evidence. Two escapes:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab logs checkout          # or payment; shows the syntax error
+./lab checkpoint metrics     # restore correct code for a stage: metrics|traces|logs">Copy</button></div><pre><code><span class="cmd">./lab logs checkout          # or payment; shows the syntax error</span>
+<span class="cmd">./lab checkpoint metrics     # restore correct code for a stage: metrics|traces|logs</span></code></pre></div>
+<p><code>./lab checkpoint &lt;stage&gt;</code> restores code only, so it is also how you catch up if you fall behind. <code>./lab recover &lt;stage&gt;</code> does the same and then regenerates and re-verifies the evidence. Both are cumulative: <code>traces</code> includes the metrics change, and restoring an earlier stage discards later edits.</p>
+<hr class="rule"></section>
+<section class="step" id="1-three-minutes-with-what-you-have" data-step="1-three-minutes-with-what-you-have" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><span class="step-badge">1</span><span class="step-time">09:15</span><h2 id="1-three-minutes-with-what-you-have-title">Three minutes with what you have</h2></header><p>You start where anyone starts: the logs. That is all this service has — prose logs, the thing most services ship with and nothing else.</p>
+<p>Reproduce what the customers hit:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic incident">Copy</button></div><pre><code><span class="cmd">./lab traffic incident</span></code></pre></div>
+<p>That is 100 checkouts. Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Noisy starting logs</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a>. You should be looking at something like this:</p>
+<figure class="shot"><button class="shot-zoom" type="button" aria-label="Enlarge screenshot"><img src="images/01-noisy-logs.png" alt="Explore showing 838 undifferentiated INFO log lines for 100 checkouts" loading="lazy"></button><figcaption>Explore showing 838 undifferentiated INFO log lines for 100 checkouts</figcaption></figure>
+<p>Two details in that screenshot are the whole problem. The volume histogram is a single flat band of <code>info</code> — 838 lines, one severity. And the Fields sidebar on the left offers <code>service_name</code>, <code>severity_text</code>, and the file and line each message came from, but not one field describing what a checkout actually <em>did</em>.</p>
+<h3 id="your-three-minutes">Your three minutes</h3>
+<p>Set a timer for three minutes. Using <strong>only</strong> those logs, answer as much as you can:</p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Question</th><th>Your answer</th><th>Confidence</th></tr></thead><tbody><tr><td>1</td><td>How many payment validations were rejected?</td><td></td><td></td></tr><tr><td>2</td><td>Which currency and discount segment was affected?</td><td></td><td></td></tr><tr><td>3</td><td>Which checkout request produced one specific rejection?</td><td></td><td></td></tr></tbody></table></div>
+<p><strong>Stop at three minutes even if you are mid-scroll.</strong> Do not skip this. This is your honest baseline — what the service can tell you today, under exactly the pressure a real incident applies — and the rest of the hour only means something if you have felt it.</p>
+<h3 id="why-this-is-worse-than-it-looks">Why this is worse than it looks</h3>
+<p>Count the log lines Grafana reports for those 100 checkouts. You will see roughly <strong>840</strong>, every one of them at <code>INFO</code>, so even the level histogram tells you nothing.</p>
+<ul class="list"><li>Nothing in any line names the outcome. Checkout logs <code>Finished checkout ord-4b2c1f8e0a</code> whether the checkout succeeded or was rejected.</li><li>Nothing in any line names the currency or the discount. <code>Authorization requested</code> is all Payment says on the way in.</li><li>The rejection itself is logged at <code>INFO</code>, in three different phrasings that drifted apart as the code was maintained: <code>amount check did not pass</code>, <code>Declining authorization: totals differ</code>, and <code>validate_amount -&gt; False</code>. A text search for any one of them finds a third of the truth.</li><li>Order IDs are opaque, so you cannot infer a segment from a name.</li></ul>
+<p>This is not a contrived handicap. It is what logging looks like when each line was written to help one developer debug one function, and nobody ever asked whether the service could explain itself.</p>
+<p>Now scale it. 840 lines per 100 checkouts is <strong>8.4 lines per checkout</strong>. A service doing 1,000 checkouts per minute emits <strong>about 12 million lines a day</strong>. The three minutes you just spent do not get shorter; the haystack gets bigger.</p>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>Host metrics look normal and every request is HTTP 200. Is checkout necessarily healthy?</p></aside><details class="reveal reveal-answer"><summary>Check the idea</summary><div class="reveal-body"><p>No. HTTP status shows that the API handled the request. It does not establish that the checkout business process fulfilled its responsibility.</p></div></details></div>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>Suppose you could add one thing to these logs and nothing else. What single field would have rescued your three minutes?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>The checkout outcome, as a field rather than as prose. With <code>outcome</code> attached to a line per checkout, question 1 becomes a count and question 2 becomes a group-by — but only if the currency and discount travel with it.</p>
+<p>Hold on to that instinct, because it is exactly the right one and it is still not enough. A field on a log line answers &quot;how many&quot; only after you have queried and counted every matching line. In section 2 you will attach the same three facts to a <strong>counter</strong> instead, and the backend does the counting continuously, for a fixed storage cost, whether the service does 100 checkouts an hour or 100,000. The signal you choose is as much a design decision as the field you add.</p></div></details></div>
+<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
+<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
+<hr class="rule"><ul class="state-grid"><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Detect</span><span class="pill-reason">Logs show activity, not correctness</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Scope</span><span class="pill-reason">No business fields to group by</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">No link between a checkout and a payment decision</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">Prose records that something failed, not why</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<section class="step" id="2-how-bad-is-it-and-who-is-affected" data-step="2-how-bad-is-it-and-who-is-affected" data-detect="yes" data-scope="yes" data-isolate="no" data-explain="no"><header class="step-head"><span class="step-badge">2</span><span class="step-time">09:31</span><h2 id="2-how-bad-is-it-and-who-is-affected-title">How bad is it, and who is affected?</h2></header><p>Someone opens an incident bridge and asks the two questions every incident opens with: <em>how bad is it, and who is hit?</em> &quot;I can&#x27;t tell yet&quot; is an honest answer and a useless one — and it is the answer you will still be giving in an hour unless something changes right now.</p>
+<p>So you stop investigating for two minutes and make the service capable of answering: <strong>is checkout succeeding, and which bounded segment is failing?</strong></p>
+<aside class="callout callout-move"><p class="callout-label">Your move</p><p>one paste into <code>services/checkout/app/checkout.py</code>, save, then two traffic runs.</p></aside>
+<h3 id="what-the-code-already-gives-you">What the code already gives you</h3>
+<p>Open <code>services/checkout/app/checkout.py</code>. A <strong>counter</strong> — a number the service only ever adds to, which the backend keeps a running total of — is already declared at the top. It exports nothing, because no code ever records into it:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="checkout_completed = meter.create_counter(
+    &quot;checkout.completed&quot;, unit=&quot;{checkout}&quot;,
+    description=&quot;Completed checkout attempts by business outcome&quot;,
+)">Copy</button></div><pre><code>checkout_completed = meter.create_counter(
+    &quot;checkout.completed&quot;, unit=&quot;{checkout}&quot;,
+    description=&quot;Completed checkout attempts by business outcome&quot;,
+)</code></pre></div>
+<p>Further down, <code>process_checkout</code> works out an <code>outcome</code> on every path — <code>inventory_rejected</code>, <code>payment_rejected</code> or <code>success</code> — then throws it away into prose:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="    # The prose log records that checkout ran, not what it decided.
+    logger.info(&quot;Finished checkout %s&quot;, request.order_id)">Copy</button></div><pre><code>    # The prose log records that checkout ran, not what it decided.
+    logger.info(&quot;Finished checkout %s&quot;, request.order_id)</code></pre></div>
+<p>The service knows the answer. It just never says it in a form anything can count.</p>
+<h3 id="make-it-say-the-outcome-out-loud">Make it say the outcome out loud</h3>
+<p>Find <code># LAB 1: record checkout result</code> in <code>services/checkout/app/checkout.py</code> and paste this immediately below it. It starts with four spaces because it sits inside <code>process_checkout</code>:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="    checkout_completed.add(
+        1,
+        {
+            &quot;checkout.outcome&quot;: outcome,
+            &quot;checkout.currency&quot;: request.currency,
+            &quot;checkout.discounted&quot;: request.discounted,
+        },
+    )">Copy</button></div><pre><code>    checkout_completed.add(
+        1,
+        {
+            &quot;checkout.outcome&quot;: outcome,
+            &quot;checkout.currency&quot;: request.currency,
+            &quot;checkout.discounted&quot;: request.discounted,
+        },
+    )</code></pre></div>
+<p>Save. Uvicorn reloads in about a second — no rebuild, no restart.</p>
+<details class="reveal reveal-verify"><summary>Verify your edit — what the region should look like now</summary><div class="reveal-body"><div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="    # The prose log records that checkout ran, not what it decided.
+    logger.info(&quot;Finished checkout %s&quot;, request.order_id)
+
+    # LAB 1: record checkout result
+    checkout_completed.add(
+        1,
+        {
+            &quot;checkout.outcome&quot;: outcome,
+            &quot;checkout.currency&quot;: request.currency,
+            &quot;checkout.discounted&quot;: request.discounted,
+        },
+    )
+
+    return {&quot;order_id&quot;: request.order_id, &quot;outcome&quot;: outcome}">Copy</button></div><pre><code>    # The prose log records that checkout ran, not what it decided.
+    logger.info(&quot;Finished checkout %s&quot;, request.order_id)
+
+    # LAB 1: record checkout result
+    checkout_completed.add(
+        1,
+        {
+            &quot;checkout.outcome&quot;: outcome,
+            &quot;checkout.currency&quot;: request.currency,
+            &quot;checkout.discounted&quot;: request.discounted,
+        },
+    )
+
+    return {&quot;order_id&quot;: request.order_id, &quot;outcome&quot;: outcome}</code></pre></div>
+<p>Indentation is the usual failure. Everything above is inside <code>process_checkout</code>, at four spaces.</p></div></details>
+<h3 id="start-the-traffic-then-keep-reading">Start the traffic, then keep reading</h3>
+<p>Nothing shows up in Grafana until checkouts actually run, so start them now. Open <a class="view-link" href="http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s" target="_blank" rel="noopener"><span class="view-name">Runtime and checkout metrics</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s</span></a> and leave it in another tab — it refreshes itself every five seconds — then run both profiles:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic healthy
+./lab traffic incident">Copy</button></div><pre><code><span class="cmd">./lab traffic healthy</span>
+<span class="cmd">./lab traffic incident</span></code></pre></div>
+<p>Each run takes about 45 seconds. Within a few seconds of the first one, panels that were empty all morning start drawing: your one <code>.add()</code> call is the only reason there is anything to draw.</p>
+<p><strong>Read the next two parts while the runs finish</strong>, then come back to the dashboard.</p>
+<details class="reveal reveal-note"><summary>Nothing appears at all after a minute</summary><div class="reveal-body"><p>The paste probably stopped the service reloading. Look for the syntax error, and restore known-good code if you need it:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab logs checkout
+./lab checkpoint metrics">Copy</button></div><pre><code><span class="cmd">./lab logs checkout</span>
+<span class="cmd">./lab checkpoint metrics</span></code></pre></div>
+<p>See <a href="#if-an-edit-goes-wrong">If an edit goes wrong</a> in section 0.</p></div></details>
+<h3 id="what-that-block-does">What that block does</h3>
+<ul class="list"><li><strong><code>.add(1, ...)</code></strong> adds one to the counter. Counters only go up; you never work out a rate or a percentage in application code, because the backend derives those from the running total.</li><li><strong>Where it sits</strong> — after every branch has settled on <code>outcome</code>, before the <code>return</code> — records exactly one increment per checkout, whatever happened. Inside the success branch only, it would silently miss the failures you are hunting.</li><li><strong><code>checkout.outcome</code></strong> is your <em>Detect</em> answer: not &quot;the API responded&quot; but &quot;the business process succeeded or did not.&quot;</li><li><strong><code>checkout.currency</code> and <code>checkout.discounted</code></strong> are your <em>Scope</em> answer: <strong>which</strong> checkouts are failing, without opening a log line.</li></ul>
+<p>Dotted lowercase names are OpenTelemetry convention, so yours read like the attributes auto-instrumentation already emits.</p>
+<h3 id="the-one-thing-to-get-right-keep-the-attributes-countable">The one thing to get right: keep the attributes countable</h3>
+<p>A counter does not store your checkouts. It stores <strong>one running total per unique combination of attribute values</strong>. Each of those totals is called a <em>time series</em> — one line that only ever ticks upward.</p>
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 320" role="img" aria-labelledby="fig-card-title fig-card-desc">
+      <title id="fig-card-title">What a counter stores, with and without order_id</title>
+      <desc id="fig-card-desc">On the left, 100 checkouts collapse into three stored rows with running totals of 50, 25 and 25, and the list stays three rows no matter how much traffic arrives. On the right, adding order_id to the same 100 checkouts produces 100 separate rows, each stuck at a total of 1, and the list grows by one row for every checkout forever.</desc>
+
+      <!-- left panel: bounded attributes -->
+      <text class="d-title" x="8" y="16">3 bounded attributes</text>
+      <text class="d-label" x="8" y="32">outcome · currency · discounted</text>
+
+      <g class="d-dot">
+        <circle cx="14" cy="52" r="2.4"/><circle cx="30" cy="52" r="2.4"/><circle cx="46" cy="52" r="2.4"/><circle cx="62" cy="52" r="2.4"/><circle cx="78" cy="52" r="2.4"/><circle cx="94" cy="52" r="2.4"/><circle cx="110" cy="52" r="2.4"/><circle cx="126" cy="52" r="2.4"/><circle cx="142" cy="52" r="2.4"/><circle cx="158" cy="52" r="2.4"/><circle cx="174" cy="52" r="2.4"/><circle cx="190" cy="52" r="2.4"/><circle cx="206" cy="52" r="2.4"/><circle cx="222" cy="52" r="2.4"/><circle cx="238" cy="52" r="2.4"/><circle cx="254" cy="52" r="2.4"/><circle cx="270" cy="52" r="2.4"/><circle cx="286" cy="52" r="2.4"/><circle cx="302" cy="52" r="2.4"/><circle cx="318" cy="52" r="2.4"/>
+        <circle cx="14" cy="64" r="2.4"/><circle cx="30" cy="64" r="2.4"/><circle cx="46" cy="64" r="2.4"/><circle cx="62" cy="64" r="2.4"/><circle cx="78" cy="64" r="2.4"/><circle cx="94" cy="64" r="2.4"/><circle cx="110" cy="64" r="2.4"/><circle cx="126" cy="64" r="2.4"/><circle cx="142" cy="64" r="2.4"/><circle cx="158" cy="64" r="2.4"/><circle cx="174" cy="64" r="2.4"/><circle cx="190" cy="64" r="2.4"/><circle cx="206" cy="64" r="2.4"/><circle cx="222" cy="64" r="2.4"/><circle cx="238" cy="64" r="2.4"/><circle cx="254" cy="64" r="2.4"/><circle cx="270" cy="64" r="2.4"/><circle cx="286" cy="64" r="2.4"/><circle cx="302" cy="64" r="2.4"/><circle cx="318" cy="64" r="2.4"/>
+      </g>
+      <text class="d-mono-soft" x="8" y="84">100 checkouts</text>
+      <path class="d-hair" stroke-width="1" d="M166 92 L60 108 M166 92 L166 108 M166 92 L272 108"/>
+      <text class="d-label" x="176" y="86">the backend keeps ↓</text>
+
+      <g>
+        <rect class="d-ok-soft" x="8" y="112" width="330" height="30" rx="6" stroke-width="1"/>
+        <text class="d-mono" x="20" y="131">success · CAD · false</text>
+        <path class="d-line" stroke-width="1.6" d="M250 134 h10 v-6 h10 v-7 h10 v-6 h10"/>
+        <text class="d-count" x="306" y="131">50</text>
+      </g>
+      <g>
+        <rect class="d-ok-soft" x="8" y="148" width="330" height="30" rx="6" stroke-width="1"/>
+        <text class="d-mono" x="20" y="167">success · USD · true</text>
+        <path class="d-line" stroke-width="1.6" d="M250 170 h10 v-5 h10 v-5 h10 v-4 h10"/>
+        <text class="d-count" x="306" y="167">25</text>
+      </g>
+      <g>
+        <rect class="d-bad-soft" x="8" y="184" width="330" height="30" rx="6" stroke-width="1"/>
+        <text class="d-mono" x="20" y="203">payment_rejected · CAD · true</text>
+        <path class="d-line" stroke-width="1.6" d="M250 206 h10 v-5 h10 v-5 h10 v-4 h10"/>
+        <text class="d-count" x="306" y="203">25</text>
+      </g>
+
+      <rect class="d-surface" x="8" y="228" width="330" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="20" y="248">3 rows. Forever.</text>
+      <text class="d-label" x="20" y="266">A million checkouts tomorrow: same 3 rows, bigger numbers.</text>
+
+      <!-- divider -->
+      <path class="d-hair" stroke-width="1" d="M370 8 V300"/>
+
+      <!-- right panel: order_id added -->
+      <text class="d-title" x="402" y="16">the same, plus order_id</text>
+      <text class="d-label" x="402" y="32">outcome · currency · discounted · order_id</text>
+
+      <g class="d-dot">
+        <circle cx="408" cy="52" r="2.4"/><circle cx="424" cy="52" r="2.4"/><circle cx="440" cy="52" r="2.4"/><circle cx="456" cy="52" r="2.4"/><circle cx="472" cy="52" r="2.4"/><circle cx="488" cy="52" r="2.4"/><circle cx="504" cy="52" r="2.4"/><circle cx="520" cy="52" r="2.4"/><circle cx="536" cy="52" r="2.4"/><circle cx="552" cy="52" r="2.4"/><circle cx="568" cy="52" r="2.4"/><circle cx="584" cy="52" r="2.4"/><circle cx="600" cy="52" r="2.4"/><circle cx="616" cy="52" r="2.4"/><circle cx="632" cy="52" r="2.4"/><circle cx="648" cy="52" r="2.4"/><circle cx="664" cy="52" r="2.4"/><circle cx="680" cy="52" r="2.4"/><circle cx="696" cy="52" r="2.4"/><circle cx="712" cy="52" r="2.4"/>
+        <circle cx="408" cy="64" r="2.4"/><circle cx="424" cy="64" r="2.4"/><circle cx="440" cy="64" r="2.4"/><circle cx="456" cy="64" r="2.4"/><circle cx="472" cy="64" r="2.4"/><circle cx="488" cy="64" r="2.4"/><circle cx="504" cy="64" r="2.4"/><circle cx="520" cy="64" r="2.4"/><circle cx="536" cy="64" r="2.4"/><circle cx="552" cy="64" r="2.4"/><circle cx="568" cy="64" r="2.4"/><circle cx="584" cy="64" r="2.4"/><circle cx="600" cy="64" r="2.4"/><circle cx="616" cy="64" r="2.4"/><circle cx="632" cy="64" r="2.4"/><circle cx="648" cy="64" r="2.4"/><circle cx="664" cy="64" r="2.4"/><circle cx="680" cy="64" r="2.4"/><circle cx="696" cy="64" r="2.4"/><circle cx="712" cy="64" r="2.4"/>
+      </g>
+      <text class="d-mono-soft" x="402" y="84">the same 100 checkouts</text>
+      <path class="d-hair" stroke-width="1" d="M560 92 L420 104 M560 92 L490 104 M560 92 L560 104 M560 92 L630 104 M560 92 L700 104"/>
+      <text class="d-label" x="570" y="86">the backend keeps ↓</text>
+
+      <g>
+        <rect class="d-bad-soft" x="402" y="108" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="123">payment_rejected·CAD·true·ord-e6d778add6</text>
+        <text class="d-count" x="700" y="123">1</text>
+      </g>
+      <g>
+        <rect class="d-bad-soft" x="402" y="134" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="149">payment_rejected·CAD·true·ord-5c21f308dc</text>
+        <text class="d-count" x="700" y="149">1</text>
+      </g>
+      <g opacity="0.75">
+        <rect class="d-bad-soft" x="402" y="160" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="175">payment_rejected·CAD·true·ord-b70a1c94e2</text>
+        <text class="d-count" x="700" y="175">1</text>
+      </g>
+      <g opacity="0.5">
+        <rect class="d-bad-soft" x="402" y="186" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="201">payment_rejected·CAD·true·ord-3f8d20ab77</text>
+        <text class="d-count" x="700" y="201">1</text>
+      </g>
+      <g opacity="0.25">
+        <rect class="d-bad-soft" x="402" y="212" width="330" height="22" rx="5" stroke-width="1"/>
+        <text class="d-mono" x="412" y="227">payment_rejected·CAD·true·ord-c41e7d0b56</text>
+        <text class="d-count" x="700" y="227">1</text>
+      </g>
+      <text class="d-mono-soft" x="402" y="248">…96 more rows from this run alone</text>
+
+      <text class="d-title" x="402" y="270">1 row per checkout. Kept forever.</text>
+      <text class="d-label" x="402" y="288">At 1,000 checkouts a minute: 1.4 million new rows a day.</text>
+    </svg>
+  </div>
+  <figcaption><strong>A counter stores one row per unique combination of attribute values</strong> — each row a running total that only ticks upward. Bounded attributes keep that list short forever. <code>order_id</code> never repeats, so every checkout invents a row of its own that will read <code>1</code> for the rest of its life.</figcaption>
+</figure>
+<p>Your three attributes can only combine so many ways, so after a 100-checkout incident run the entire metric is three lines:</p>
+<div class="table-wrap"><table><thead><tr><th>What the backend keeps</th><th>Running total</th></tr></thead><tbody><tr><td><code>outcome=success, currency=CAD, discounted=false</code></td><td>50</td></tr><tr><td><code>outcome=success, currency=USD, discounted=true</code></td><td>25</td></tr><tr><td><code>outcome=payment_rejected, currency=CAD, discounted=true</code></td><td>25</td></tr></tbody></table></div>
+<p>Run a million checkouts tomorrow and it is still those lines, with bigger numbers on them. The ceiling comes from the vocabulary, not the traffic: 3 outcomes × 2 currencies × 2 discount states is <strong>12 lines at most, forever</strong>. Time series are the unit a metrics backend stores, searches and bills you for, so that ceiling is the whole design. The number of series your attributes can produce is called their <em>cardinality</em>, and keeping it small and knowable is the job.</p>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p><code>order_id</code> is right there in the request, and a metric that could name the failing orders sounds far more useful. Why is it not in the attribute dictionary?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>Because order IDs never repeat, so every single checkout invents a line of its own:</p>
+<div class="table-wrap"><table><thead><tr><th>What the backend keeps</th><th>Running total</th></tr></thead><tbody><tr><td><code>outcome=payment_rejected, currency=CAD, discounted=true, order_id=ord-e6d778add6</code></td><td>1</td></tr><tr><td><code>outcome=payment_rejected, currency=CAD, discounted=true, order_id=ord-5c21f308dc</code></td><td>1</td></tr><tr><td>…98 more, one per checkout</td><td>1</td></tr></tbody></table></div>
+<p>100 checkouts, 100 lines, each stuck at 1 and each kept forever. At 1,000 checkouts a minute that is <strong>1.4 million new lines a day</strong>, sitting in the backend&#x27;s memory and index. You have not built a metric; you have built an expensive log that cannot be graphed.</p>
+<p>Nothing errors when you do this. It works on your laptop, it passes review, and it arrives weeks later as backend cost, slow queries or an out-of-memory metrics server that nobody traces back to one line of application code. It is the most common way teams break a metrics pipeline.</p>
+<p><strong>The test:</strong> could you write down every possible value in advance? Outcomes, currencies, true/false — yes. Order IDs, request IDs, customer IDs, trace IDs, product IDs, raw URLs — no. Those never go in a metric attribute.</p>
+<p>The detail is not lost, it just belongs elsewhere. Traces and structured events store one record per request instead of one total per combination, which is exactly what you build in sections 3 and 4. Each signal gets the cardinality it can afford.</p></div></details></div>
+<h3 id="read-the-dashboard">Read the dashboard</h3>
+<p>Both runs should be finished. <strong>Business outcome over time</strong> draws the healthy run as one green line and the incident run as a second red one underneath it, and four stat tiles sit across the top. Two of those tiles disagree with each other, which is exactly the disagreement you came here to find:</p>
+<ul class="list"><li><strong>HTTP 200 responses: 100%.</strong> Transport never noticed.</li><li><strong>Checkout CPU and memory:</strong> normal.</li><li><strong>Peak business failures: 24–27%.</strong> This panel reports the worst 15-second window, so it lands near but not exactly on the true rate depending on where the window falls.</li><li><strong>Checkout outcomes by segment:</strong> one failing row — <code>CAD discounted=true → payment_rejected</code>, at 25 — beside two clean ones.</li></ul>
+<details class="reveal reveal-note"><summary>Why the segment numbers land where they do</summary><div class="reveal-body"><p>The panel counts whole checkouts across both runs. The healthy run sends 50 standard CAD and 50 discounted USD; the incident run sends 50 standard CAD, 25 discounted USD and 25 discounted CAD. So roughly 100 standard CAD and 75 discounted USD succeed, and the 25 discounted CAD checkouts — a segment that only appears in the incident run — are the entire failure.</p></div></details>
+<details class="reveal reveal-spoiler"><summary>Show the finished dashboard — it contains the answer to your section 1 table</summary><div class="reveal-body"><figure class="shot"><button class="shot-zoom" type="button" aria-label="Enlarge screenshot"><img src="images/02-checkout-dashboard.png" alt="Dashboard showing 100% HTTP 200 beside a 24% business failure rate, and 25 rejected discounted CAD checkouts" loading="lazy"></button><figcaption>Dashboard showing 100% HTTP 200 beside a 24% business failure rate, and 25 rejected discounted CAD checkouts</figcaption></figure>
+<p>Transport is perfect and the business is not, on the same screen, for the same requests. The segment panel underneath names the affected group outright.</p></div></details>
+<p>The dashboard is the primary verification. For the exact numbers, run:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab check metrics">Copy</button></div><pre><code><span class="cmd">./lab check metrics</span></code></pre></div>
+<p>If the check reports a code/service error or times out:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab recover metrics">Copy</button></div><pre><code><span class="cmd">./lab recover metrics</span></code></pre></div>
+<p>Recovery restores the checkpoint, waits for the reload, generates fresh traffic and re-verifies — see <a href="#if-an-edit-goes-wrong">If an edit goes wrong</a> in section 0. Always recover the stage you are on; an earlier stage discards later edits.</p>
+<h3 id="back-to-your-three-minutes">Back to your three minutes</h3>
+<p>Go back to your table in section 1. The true answers are <strong>25 rejections</strong>, all in <strong>discounted CAD</strong>. How close were you — and how does three minutes of scrolling compare with the ten seconds it just took to read the segment panel?</p>
+<h3 id="what-you-can-now-tell-the-bridge">What you can now tell the bridge</h3>
+<ol class="list"><li><strong>Detect:</strong> Checkout is unhealthy because <span class="blank"></span>.</li><li><strong>Scope:</strong> The affected segment is <span class="blank"></span>.</li><li>The metric does not yet prove <span class="blank"></span>.</li></ol>
+<details class="reveal reveal-answer"><summary>Check your evidence</summary><div class="reveal-body"><ol class="list"><li>About a quarter of checkouts return a failed business outcome, even though every HTTP response is 200.</li><li>Rejections are concentrated in discounted CAD checkouts. Standard CAD and discounted USD ran in the same window and every one of them succeeded.</li><li>The metric does not show which operation rejected one request or why its amount was rejected.</li></ol></div></details>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the dashboard says 25 discounted CAD checkouts were rejected. Could you use this metric to pull up one of those 25 rejected checkouts?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>No, and this is the boundary of what metrics are for. A counter is an aggregate: it tells you that 25 checkouts in this segment failed, and nothing whatsoever about which 25. There is no request inside a counter to open.</p>
+<p>That limit is structural, not a gap in this particular metric — it is the reason the next signal exists. Traces keep per-request detail, so you can follow one checkout through Inventory and Payment and see where it turned.</p></div></details></div>
+<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
+<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
+<aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>do not continue until the dashboard or <code>./lab check metrics</code> confirms the new evidence.</p></aside>
+<hr class="rule"><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only; other segments are clean</span><span class="visually-hidden">: answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">The metric counts outcomes, it does not follow a request</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">No amounts, no reason</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<section class="step" id="3-where-did-it-break" data-step="3-where-did-it-break" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="no"><header class="step-head"><span class="step-badge">3</span><span class="step-time">09:48</span><h2 id="3-where-did-it-break-title">Where did it break?</h2></header><p>You post the segment breakdown. The bridge now knows a quarter of discounted CAD checkouts are being rejected, and the next message is the obvious one: <em>whose service?</em></p>
+<p>Checkout calls Inventory and Payment. Both are green, both returned 200, and the counter you just added cannot break the tie — there is no request inside a counter to open. Inventory&#x27;s on-call has joined the bridge and wants to know whether they can stand down.</p>
+<p><strong>Which operation rejected an affected checkout?</strong></p>
+<aside class="callout callout-move"><p class="callout-label">Your move</p><p>replace one block in <code>services/payment/app/validation.py</code>, save, then one traffic run.</p></aside>
+<h3 id="what-the-sdk-already-gives-you">What the SDK already gives you</h3>
+<p>A <strong>trace</strong> is one request&#x27;s story across every service it touched. A <strong>span</strong> is one step in that story: a timed operation with a name, some attributes, and a status of OK or error. Spans nest inside each other, which is why a trace reads as a waterfall.</p>
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 236" role="img" aria-labelledby="fig-wf-title fig-wf-desc">
+      <title id="fig-wf-title">One trace as a waterfall of nested spans</title>
+      <desc id="fig-wf-desc">The root span is checkout POST /checkout and it succeeded with HTTP 200. Nested under it, inventory POST /reserve completes early with no error, and payment POST /authorize contains a child span named payment.amount_validation which is marked ERROR. Time runs left to right and depth of nesting runs top to bottom.</desc>
+
+      <text class="d-title" x="8" y="16">one request · one trace · fifteen spans</text>
+
+      <!-- root -->
+      <text class="d-mono" x="8" y="50">checkout POST /checkout</text>
+      <rect class="d-ok-soft" x="176" y="38" width="536" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="188" cy="47" r="3.4"/>
+      <text class="d-mono-soft" x="200" y="51">root · HTTP 200 · OK</text>
+
+      <!-- inventory -->
+      <text class="d-mono" x="20" y="88">inventory POST /reserve</text>
+      <rect class="d-ok-soft" x="196" y="76" width="46" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="207" cy="85" r="3.4"/>
+      <text class="d-mono-soft" x="250" y="89">721µs · no error · ruled out</text>
+
+      <!-- payment -->
+      <text class="d-mono" x="20" y="126">payment POST /authorize</text>
+      <rect class="d-ok-soft" x="262" y="114" width="428" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="273" cy="123" r="3.4"/>
+      <text class="d-mono-soft" x="286" y="127">HTTP 200 · OK</text>
+
+      <!-- validation -->
+      <text class="d-mono" x="32" y="164">payment.amount_validation</text>
+      <rect class="d-bad-soft" x="292" y="152" width="150" height="18" rx="4" stroke-width="1.4"/>
+      <path class="d-bad" d="M300 148 l7 7 -7 7 -7 -7z"/>
+      <text class="d-mono d-bad" x="452" y="168">ERROR</text><text class="d-mono-soft" x="496" y="168">· the span you added</text>
+
+      <line class="d-line" stroke-width="1" x1="176" y1="196" x2="712" y2="196"/>
+      <path class="d-line" stroke-width="1" d="M706 192 l6 4 -6 4"/>
+      <text class="d-label" x="176" y="212">time →</text>
+      <text class="d-label" x="8" y="212">nesting ↓</text>
+    </svg>
+  </div>
+  <figcaption><strong>Depth is nesting, width is duration.</strong> Checkout's HTTP request genuinely succeeded, so the root stays green; the red sits on the one span where your code made a judgement and recorded it.</figcaption>
+</figure>
+<p>Automatic instrumentation is already recording spans for the HTTP calls between Checkout, Inventory and Payment, so a trace of the whole request exists right now. What it cannot know is which <em>business decision</em> inside Payment mattered — it sees an HTTP handler, not an amount validation. Naming that decision is your job, and it takes one <code>with</code> block.</p>
+<p>Open <code>services/payment/app/validation.py</code>. The imports you need are already at the top:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="from opentelemetry.trace import Status, StatusCode
+from shared.telemetry import tracer">Copy</button></div><pre><code>from opentelemetry.trace import Status, StatusCode
+from shared.telemetry import tracer</code></pre></div>
+<h3 id="name-the-decision">Name the decision</h3>
+<p>Find this marker and the weak log/return block immediately below it:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="# LAB 2: replace validation evidence block">Copy</button></div><pre><code># LAB 2: replace validation evidence block</code></pre></div>
+<p>Replace the marker and everything from it through <code>return accepted</code> with the block below. Its first line begins with four spaces because it remains inside <code>validate_amount</code>:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="    # LAB 2: replace validation evidence block
+    with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
+        span.set_attribute(&quot;payment.currency&quot;, currency)
+        span.set_attribute(&quot;payment.discounted&quot;, discounted)
+        span.set_attribute(&quot;validation.result&quot;, &quot;accepted&quot; if accepted else &quot;rejected&quot;)
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, &quot;amount validation rejected&quot;))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            _log_weak_rejection()
+
+        return accepted">Copy</button></div><pre><code>    # LAB 2: replace validation evidence block
+    with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
+        span.set_attribute(&quot;payment.currency&quot;, currency)
+        span.set_attribute(&quot;payment.discounted&quot;, discounted)
+        span.set_attribute(&quot;validation.result&quot;, &quot;accepted&quot; if accepted else &quot;rejected&quot;)
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, &quot;amount validation rejected&quot;))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            _log_weak_rejection()
+
+        return accepted</code></pre></div>
+<p>Save the file. <code>_log_weak_rejection</code> is the old prose helper; it stays for one more section so you can compare it directly with what replaces it.</p>
+<details class="reveal reveal-verify"><summary>Verify your edit — what the function should look like now</summary><div class="reveal-body"><div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="def validate_amount(
+    unrounded_total: str,
+    received_minor_units: int,
+    currency: str,
+    discounted: bool,
+) -&gt; bool:
+    expected_minor_units = payment_expected_amount(unrounded_total)
+    accepted = received_minor_units == expected_minor_units
+
+    # LAB 2: replace validation evidence block
+    with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
+        ...
+        return accepted">Copy</button></div><pre><code>def validate_amount(
+    unrounded_total: str,
+    received_minor_units: int,
+    currency: str,
+    discounted: bool,
+) -&gt; bool:
+    expected_minor_units = payment_expected_amount(unrounded_total)
+    accepted = received_minor_units == expected_minor_units
+
+    # LAB 2: replace validation evidence block
+    with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
+        ...
+        return accepted</code></pre></div>
+<p>The old two-line <code>if not accepted: _log_weak_rejection()</code> / <code>return accepted</code> block should no longer exist at four-space indentation — it now lives inside the <code>with</code> block.</p></div></details>
+<h3 id="start-the-traffic-then-keep-reading">Start the traffic, then keep reading</h3>
+<p>Spans only exist for requests that actually happen, so send another hundred:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic incident
+./lab check traces">Copy</button></div><pre><code><span class="cmd">./lab traffic incident</span>
+<span class="cmd">./lab check traces</span></code></pre></div>
+<p>That takes about a minute, and the check prints a fresh trace ID when it finishes. <strong>Read the next two parts while it runs.</strong></p>
+<details class="reveal reveal-note"><summary>The check fails, or prints no trace ID</summary><div class="reveal-body"><p>Payment probably did not reload — a <code>with</code> block at the wrong indentation is the usual cause:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab logs payment
+./lab recover traces">Copy</button></div><pre><code><span class="cmd">./lab logs payment</span>
+<span class="cmd">./lab recover traces</span></code></pre></div></div></details>
+<h3 id="what-that-block-does">What that block does</h3>
+<ul class="list"><li><strong><code>start_as_current_span(&quot;payment.amount_validation&quot;)</code></strong> opens a span and makes it the active one until the block exits. You never pass it a parent — the HTTP auto-instrumentation already opened a server span for <code>POST /authorize</code>, and the SDK nests yours underneath it.</li><li><strong>The name is the decision, not the function.</strong> <code>payment.amount_validation</code> is what you want to spot in a waterfall; <code>validate_amount</code> is an implementation detail that gets renamed one day.</li><li><strong><code>set_attribute(...)</code></strong> makes the span filterable. <code>payment.currency</code> and <code>payment.discounted</code> are the same two dimensions you used in the metric, so the segment you scoped in section 2 is the segment you can search for here.</li><li><strong><code>set_status(Status(StatusCode.ERROR, ...))</code></strong> is the load-bearing line: it marks the span failed, draws the red icon, and makes <code>status = error</code> a valid search. Without it a rejection is a perfectly ordinary-looking span — the same trap as HTTP 200.</li><li><strong>The <code>with</code> block closes the span for you</strong>, which is what gives the operation a duration. <code>return accepted</code> moves inside on purpose, and so does the event you add in section 4.</li></ul>
+<details class="reveal reveal-note"><summary>How three separate services end up in one trace</summary><div class="reveal-body"><figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 216" role="img" aria-labelledby="fig-prop-title fig-prop-desc">
+      <title id="fig-prop-title">How one trace ID reaches three services</title>
+      <desc id="fig-prop-desc">Checkout starts a trace and sends its ID in the traceparent HTTP header. Inventory and Payment read that header, so the spans all three services record belong to the same trace. Nothing in the application code passes a correlation ID by hand.</desc>
+
+      <rect class="d-surface" x="8" y="52" width="150" height="64" rx="8" stroke-width="1"/>
+      <text class="d-title" x="24" y="76">Checkout</text>
+      <text class="d-mono-soft" x="24" y="94">starts the trace</text>
+      <rect class="d-ok-soft" x="24" y="100" width="118" height="8" rx="3" stroke-width="1"/>
+
+      <path class="d-line" stroke-width="1.4" d="M158 74 h84 l0 -18 h58"/>
+      <path class="d-line" stroke-width="1.4" d="M158 96 h84 l0 62 h58"/>
+      <path class="d-line" stroke-width="1.4" d="M294 50 l-6 6 6 6" />
+      <path class="d-line" stroke-width="1.4" d="M294 152 l-6 6 6 6" />
+      <text class="d-mono-soft" x="166" y="42">traceparent: 00-4bf9…</text>
+      <text class="d-mono-soft" x="166" y="112">the same header</text>
+
+      <rect class="d-surface" x="300" y="24" width="150" height="64" rx="8" stroke-width="1"/>
+      <text class="d-title" x="316" y="48">Inventory</text>
+      <text class="d-mono-soft" x="316" y="66">joins the trace</text>
+      <rect class="d-ok-soft" x="316" y="72" width="60" height="8" rx="3" stroke-width="1"/>
+
+      <rect class="d-surface" x="300" y="126" width="150" height="76" rx="8" stroke-width="1"/>
+      <text class="d-title" x="316" y="150">Payment</text>
+      <text class="d-mono-soft" x="316" y="168">joins the trace</text>
+      <rect class="d-ok-soft" x="316" y="174" width="118" height="8" rx="3" stroke-width="1"/>
+      <rect class="d-bad-soft" x="330" y="186" width="70" height="8" rx="3" stroke-width="1"/>
+
+      <path class="d-hair" stroke-width="1" d="M470 58 h40 M470 160 h40"/>
+      <rect class="d-info-soft" x="516" y="40" width="216" height="136" rx="8" stroke-width="1"/>
+      <text class="d-title" x="532" y="64">one trace</text>
+      <text class="d-mono-soft" x="532" y="82">trace_id 4bf92f3577b34da6</text>
+      <rect class="d-ok-soft" x="532" y="92" width="184" height="8" rx="3" stroke-width="1"/>
+      <rect class="d-ok-soft" x="544" y="106" width="60" height="8" rx="3" stroke-width="1"/>
+      <rect class="d-ok-soft" x="544" y="120" width="140" height="8" rx="3" stroke-width="1"/>
+      <rect class="d-bad-soft" x="556" y="134" width="70" height="8" rx="3" stroke-width="1"/>
+      <text class="d-label" x="532" y="160">every span, from all three services</text>
+    </svg>
+  </div>
+  <figcaption><strong>Nothing here is plumbing you write.</strong> Checkout's outgoing request carries the trace context in a header, each service's auto-instrumentation reads it back out, and any span you open inside that request joins the same trace.</figcaption>
+</figure>
+<p>Checkout&#x27;s outgoing HTTP request carries the trace context in its headers, and each service&#x27;s auto-instrumentation reads it back out, so Checkout, Inventory and Payment land in <strong>one</strong> trace with no plumbing from you. Anything you open inside that request — this span included — joins the same trace automatically.</p>
+<p>It is also why the next section&#x27;s log line goes <em>inside</em> this <code>with</code> block. Code running in the block has this span as its active context, so its record will correlate to this validation rather than to the HTTP request wrapped around it.</p></div></details>
+<h3 id="what-you-deliberately-left-out-of-the-span">What you deliberately left out of the span</h3>
+<p>There are no amounts here. No <code>expected_minor_units</code>, no rounding modes. That is deliberate, and <code>./lab check traces</code> actively fails if amounts leak into the span.</p>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>why hold the amounts back when you already have them in scope on this line?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>Two reasons, one pedagogical and one real.</p>
+<p>The real one is separation of duty between signals. A trace answers <strong>where</strong> — which operation, in which service, in what order, taking how long. An event answers <strong>why</strong> — the specific values and the condition. Spans are emitted for every request whether it succeeds or not, so every attribute you attach is paid for on all of them; a rejection payload belongs on the rejection, not on all 100 spans. Keeping the boundary sharp also keeps the trace readable at a glance.</p>
+<p>The pedagogical one: if the span carried the amounts, section 4 would have nothing left to teach you, and you would never feel the difference between &quot;I can name the failing operation&quot; and &quot;I can explain the failure.&quot;</p></div></details></div>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the trace you are about to open contains the HTTP 200 that Checkout returned for this request. Will the root span be green or red?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open — the screenshot below gives it away</summary><div class="reveal-body"><p>Green. The root span is the HTTP request, and the HTTP request genuinely succeeded — Checkout handled it, returned 200, and nothing threw.</p>
+<p>The red is on the child span, because that is where your code made a judgement and recorded it. This is the same &quot;every request returns 200&quot; problem you started with, except the waterfall now shows both truths at once: transport succeeded, the business decision did not. A green root with a red child is a completely normal, correct picture of a business failure.</p></div></details></div>
+<h3 id="read-the-trace">Read the trace</h3>
+<p>Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Failed payment-validation traces</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a> and <strong>click any Trace ID</strong> from the run you just made. You are looking at one request&#x27;s whole life: roughly fifteen spans, three services nested inside each other in the order the request travelled.</p>
+<p>Look for:</p>
+<ul class="list"><li>One distributed trace containing Checkout, Inventory, and Payment work.</li><li>A successful top-level HTTP request, because Checkout returned 200.</li><li>A <code>payment.amount_validation</code> child span marked with a red <code>ERROR</code> icon.</li><li><strong>Click that span</strong> to expand it and read its attributes: <code>payment.currency=CAD</code>, <code>payment.discounted=true</code>, <code>validation.result=rejected</code>.</li></ul>
+<details class="reveal reveal-spoiler"><summary>Show the finished waterfall — it names the failing service for you</summary><div class="reveal-body"><figure class="shot"><button class="shot-zoom" type="button" aria-label="Enlarge screenshot"><img src="images/03-failed-trace.png" alt="Trace waterfall with checkout, inventory and payment, and a red payment.amount_validation span" loading="lazy"></button><figcaption>Trace waterfall with checkout, inventory and payment, and a red payment.amount_validation span</figcaption></figure>
+<p>The same picture also rules a service out: <code>inventory POST /reserve</code> finished in 721µs with no error, so Inventory is cleared by the very view that indicts Payment.</p></div></details>
+<p>If the evidence does not appear:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab recover traces">Copy</button></div><pre><code><span class="cmd">./lab recover traces</span></code></pre></div>
+<h3 id="back-to-question-3">Back to question 3</h3>
+<p>&quot;Which checkout request produced one specific rejection?&quot; — the trace ID at the top of that waterfall is the answer, and section 1 had nothing that could produce it. Payment&#x27;s prose and Checkout&#x27;s prose were unrelated text in one shared stream. One propagated trace context later, a single request carries one identifier across all three services, and you can hand that ID to somebody else knowing they will look at exactly the request you looked at.</p>
+<h3 id="what-you-can-now-hand-to-payments">What you can now hand to Payments</h3>
+<ol class="list"><li>Inventory <span class="blank"></span>.</li><li>The request was rejected during <span class="blank"></span>.</li><li>The trace still does not explain <span class="blank"></span>.</li></ol>
+<details class="reveal reveal-answer"><summary>Check your evidence</summary><div class="reveal-body"><ol class="list"><li>Inventory completed successfully for the selected request, in well under a millisecond.</li><li>The request was rejected during Payment amount validation.</li><li>The trace does not explain the expected value, received value, or why those values differed.</li></ol></div></details>
+<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
+<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
+<aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>you should be able to name the failing operation without yet naming the cause.</p></aside>
+<hr class="rule"><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Isolate</span><span class="pill-reason">Payment amount validation, with Inventory ruled out</span><span class="visually-hidden">: answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">You can name the operation, not the condition</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<section class="step" id="4-why-did-it-break" data-step="4-why-did-it-break" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="yes"><header class="step-head"><span class="step-badge">4</span><span class="step-time">10:03</span><h2 id="4-why-did-it-break-title">Why did it break?</h2></header><p>You can name the operation, so you page the Payments on-call. This is the moment most incidents go sideways: the entire content of your page is &quot;amount validation rejects discounted CAD.&quot; The first reply comes back in under a minute — <em>what were the amounts?</em> — and the only answer anywhere in the system is <code>validate_amount -&gt; False</code>.</p>
+<p>Two teams are now awake, and neither of you can say what the service actually compared.</p>
+<p><strong>What application condition caused Payment to reject the amount?</strong></p>
+<aside class="callout callout-move"><p class="callout-label">Your move</p><p>replace one more block in <code>services/payment/app/validation.py</code>, save, then one traffic run.</p></aside>
+<h3 id="what-is-already-there-and-why-it-is-useless">What is already there, and why it is useless</h3>
+<p>The rejection is already being logged — by <code>_log_weak_rejection</code>, the helper you have been living with since section 1:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="_WEAK_MESSAGES = (
+    &quot;amount check did not pass&quot;,
+    &quot;Declining authorization: totals differ&quot;,
+    &quot;validate_amount -&gt; False&quot;,
+)">Copy</button></div><pre><code>_WEAK_MESSAGES = (
+    &quot;amount check did not pass&quot;,
+    &quot;Declining authorization: totals differ&quot;,
+    &quot;validate_amount -&gt; False&quot;,
+)</code></pre></div>
+<p>Three phrasings, at <code>INFO</code>, with no fields. This is what &quot;we already log that&quot; usually means.</p>
+<p>You are not adding logging here; you are replacing prose with a <strong>structured event</strong> — a log line whose facts live in named fields instead of inside an English sentence, so they can be filtered, grouped and counted without anyone parsing text.</p>
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 268" role="img" aria-labelledby="fig-event-title fig-event-desc">
+      <title id="fig-event-title">The same rejection as prose and as a structured event</title>
+      <desc id="fig-event-desc">On the left, the rejection is one INFO line reading validate_amount arrow False: a single opaque string with nothing to filter on. On the right, the same rejection is a WARN event carrying named fields — event_name, reason_code, expected and received minor units, and both rounding modes — with trace and span IDs attached automatically by the SDK.</desc>
+
+      <text class="d-title" x="8" y="16">before · a sentence</text>
+      <rect class="d-surface" x="8" y="28" width="330" height="60" rx="8" stroke-width="1"/>
+      <text class="d-mono-soft" x="22" y="52">INFO</text>
+      <text class="d-mono" x="62" y="52">validate_amount -&gt; False</text>
+      <text class="d-mono-soft" x="22" y="72">…among 838 other INFO lines</text>
+
+      <text class="d-label" x="8" y="112">Nothing to filter on:</text>
+      <text class="d-label" x="8" y="130">no outcome, no currency, no amounts,</text>
+      <text class="d-label" x="8" y="148">no link to the request it belongs to.</text>
+      <text class="d-label" x="8" y="176">Three different phrasings of this one</text>
+      <text class="d-label" x="8" y="194">decision drifted apart as the code was</text>
+      <text class="d-label" x="8" y="212">maintained, so a text search finds a third</text>
+      <text class="d-label" x="8" y="230">of the truth.</text>
+
+      <path class="d-hair" stroke-width="1" d="M370 8 V254"/>
+
+      <text class="d-title" x="402" y="16">after · fields</text>
+      <rect class="d-warn-soft" x="402" y="28" width="330" height="196" rx="8" stroke-width="1.2"/>
+      <text class="d-mono" x="416" y="50">WARN</text>
+      <text class="d-mono-soft" x="458" y="50">Payment amount validation rejected</text>
+      <line class="d-hair" stroke-width="1" x1="416" y1="60" x2="718" y2="60"/>
+
+      <text class="d-mono-soft" x="416" y="80">event_name</text>
+      <text class="d-mono" x="566" y="80">payment.amount_…rejected</text>
+      <text class="d-mono-soft" x="416" y="100">reason_code</text>
+      <text class="d-mono" x="566" y="100">minor_unit_mismatch</text>
+      <text class="d-mono-soft" x="416" y="120">expected_minor_units</text>
+      <text class="d-mono" x="566" y="120">1000</text>
+      <text class="d-mono-soft" x="416" y="140">received_minor_units</text>
+      <text class="d-mono" x="566" y="140">1001</text>
+      <text class="d-mono-soft" x="416" y="160">checkout_rounding_mode</text>
+      <text class="d-mono" x="566" y="160">HALF_UP</text>
+      <text class="d-mono-soft" x="416" y="180">payment_rounding_mode</text>
+      <text class="d-mono" x="566" y="180">HALF_EVEN</text>
+
+      <line class="d-hair" stroke-width="1" x1="416" y1="192" x2="718" y2="192"/>
+      <text class="d-mono-soft" x="416" y="212">trace_id · span_id</text>
+      <text class="d-mono" x="566" y="212">attached by the SDK</text>
+
+      <text class="d-label" x="402" y="246">Every line above is a field you can filter, group and count.</text>
+    </svg>
+  </div>
+  <figcaption><strong>Same rejection, twice.</strong> One version has to be read; the other can be queried — and because it is emitted inside the validation span, it points back at the exact operation that produced it.</figcaption>
+</figure>
+<h3 id="say-what-the-service-compared">Say what the service compared</h3>
+<p>In <code>services/payment/app/validation.py</code>, find:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="# LAB 3: record amount validation rejection">Copy</button></div><pre><code># LAB 3: record amount validation rejection</code></pre></div>
+<p>Replace the <code>if not accepted</code> block immediately below that marker with the block below. Its first line begins with eight spaces because it remains inside the span:</p>
+<div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="        if not accepted:
+            logger.warning(
+                &quot;Payment amount validation rejected&quot;,
+                extra={
+                    &quot;event_name&quot;: &quot;payment.amount_validation_rejected&quot;,
+                    &quot;reason_code&quot;: &quot;minor_unit_mismatch&quot;,
+                    &quot;payment_currency&quot;: currency,
+                    &quot;payment_discounted&quot;: discounted,
+                    &quot;expected_minor_units&quot;: expected_minor_units,
+                    &quot;received_minor_units&quot;: received_minor_units,
+                    &quot;checkout_rounding_mode&quot;: &quot;HALF_UP&quot;,
+                    &quot;payment_rounding_mode&quot;: &quot;HALF_EVEN&quot;,
+                },
+            )">Copy</button></div><pre><code>        if not accepted:
+            logger.warning(
+                &quot;Payment amount validation rejected&quot;,
+                extra={
+                    &quot;event_name&quot;: &quot;payment.amount_validation_rejected&quot;,
+                    &quot;reason_code&quot;: &quot;minor_unit_mismatch&quot;,
+                    &quot;payment_currency&quot;: currency,
+                    &quot;payment_discounted&quot;: discounted,
+                    &quot;expected_minor_units&quot;: expected_minor_units,
+                    &quot;received_minor_units&quot;: received_minor_units,
+                    &quot;checkout_rounding_mode&quot;: &quot;HALF_UP&quot;,
+                    &quot;payment_rounding_mode&quot;: &quot;HALF_EVEN&quot;,
+                },
+            )</code></pre></div>
+<p>Save the file. The call to <code>_log_weak_rejection()</code> is gone; the helper above is now dead code, which is exactly what should happen to it.</p>
+<details class="reveal reveal-verify"><summary>Verify your edit — what the span block should look like now</summary><div class="reveal-body"><div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="    # LAB 2: replace validation evidence block
+    with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
+        span.set_attribute(&quot;payment.currency&quot;, currency)
+        span.set_attribute(&quot;payment.discounted&quot;, discounted)
+        span.set_attribute(&quot;validation.result&quot;, &quot;accepted&quot; if accepted else &quot;rejected&quot;)
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, &quot;amount validation rejected&quot;))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            logger.warning(
+                &quot;Payment amount validation rejected&quot;,
+                extra={
+                    &quot;event_name&quot;: &quot;payment.amount_validation_rejected&quot;,
+                    &quot;reason_code&quot;: &quot;minor_unit_mismatch&quot;,
+                    &quot;payment_currency&quot;: currency,
+                    &quot;payment_discounted&quot;: discounted,
+                    &quot;expected_minor_units&quot;: expected_minor_units,
+                    &quot;received_minor_units&quot;: received_minor_units,
+                    &quot;checkout_rounding_mode&quot;: &quot;HALF_UP&quot;,
+                    &quot;payment_rounding_mode&quot;: &quot;HALF_EVEN&quot;,
+                },
+            )
+
+        return accepted">Copy</button></div><pre><code>    # LAB 2: replace validation evidence block
+    with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
+        span.set_attribute(&quot;payment.currency&quot;, currency)
+        span.set_attribute(&quot;payment.discounted&quot;, discounted)
+        span.set_attribute(&quot;validation.result&quot;, &quot;accepted&quot; if accepted else &quot;rejected&quot;)
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, &quot;amount validation rejected&quot;))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            logger.warning(
+                &quot;Payment amount validation rejected&quot;,
+                extra={
+                    &quot;event_name&quot;: &quot;payment.amount_validation_rejected&quot;,
+                    &quot;reason_code&quot;: &quot;minor_unit_mismatch&quot;,
+                    &quot;payment_currency&quot;: currency,
+                    &quot;payment_discounted&quot;: discounted,
+                    &quot;expected_minor_units&quot;: expected_minor_units,
+                    &quot;received_minor_units&quot;: received_minor_units,
+                    &quot;checkout_rounding_mode&quot;: &quot;HALF_UP&quot;,
+                    &quot;payment_rounding_mode&quot;: &quot;HALF_EVEN&quot;,
+                },
+            )
+
+        return accepted</code></pre></div>
+<p>The two <code>if not accepted:</code> blocks are both at eight spaces, inside the <code>with</code>. <code>return accepted</code> is still the last line of the block.</p></div></details>
+<h3 id="start-the-traffic-then-keep-reading">Start the traffic, then keep reading</h3>
+<p>One more hundred checkouts, so there are rejections to look at:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic incident
+./lab check logs">Copy</button></div><pre><code><span class="cmd">./lab traffic incident</span>
+<span class="cmd">./lab check logs</span></code></pre></div>
+<p>About a minute. <strong>Read the next two parts while it runs.</strong></p>
+<details class="reveal reveal-note"><summary>The check fails</summary><div class="reveal-body"><div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab logs payment
+./lab recover logs">Copy</button></div><pre><code><span class="cmd">./lab logs payment</span>
+<span class="cmd">./lab recover logs</span></code></pre></div></div></details>
+<h3 id="what-that-block-does">What that block does</h3>
+<ul class="list"><li><strong><code>extra={...}</code></strong> turns each key into a real field on the record. The OpenTelemetry handler in <code>services/shared/telemetry.py</code> forwards them and Loki stores them as structured metadata — fields you filter and group by, not text you parse out of a message.</li><li><strong><code>event_name</code></strong> is a stable identifier for <em>this decision</em>, independent of wording. You watched three phrasings of one rejection drift apart in section 1; dashboards and alerts key on this instead, so the message text stays free to change.</li><li><strong><code>reason_code</code></strong> is a bounded, machine-readable <em>why</em>. It is the difference between &quot;rejections are up&quot; and &quot;rounding mismatches are up.&quot;</li><li><strong><code>expected_minor_units</code> / <code>received_minor_units</code></strong> are integers in the currency&#x27;s smallest unit — cents here, so <code>1000</code> is CAD 10.00. Integers are exact and comparable; <code>&quot;$10.00&quot;</code> and <code>&quot;10,01&quot;</code> are neither.</li><li><strong><code>checkout_rounding_mode</code> / <code>payment_rounding_mode</code></strong> turn a symptom into a cause: not just that the amounts differed, but that the two services rounded differently.</li><li><strong><code>logger.warning</code></strong> is a routing decision, not decoration — see the next block.</li><li><strong>Sitting inside the <code>with</code></strong> means the span from section 3 is still active, so OpenTelemetry stamps this record with its trace and span IDs. That is your link from event to trace and back, with no correlation ID passed by hand.</li></ul>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the fields you need for correlation — trace ID and span ID — are nowhere in that <code>extra</code> dictionary. So how does Grafana get from this log line to the trace?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>The SDK adds them. A log record emitted while a span is active picks up that span&#x27;s trace and span IDs from the active context automatically, which is the whole reason this <code>logger.warning</code> sits inside the <code>with</code> block rather than after it.</p>
+<p>Move the same call below the <code>with</code> block and it would not lose the trace outright — the HTTP server span for <code>POST /authorize</code> is still active out there, so the record would attach to <em>that</em> instead. You would keep the trace ID and lose the precision: the event would no longer point at the validation operation, and <strong>Logs for this span</strong> on the red span would come back empty. Placement is instrumentation.</p></div></details></div>
+<h3 id="choosing-the-severity-and-what-never-goes-in">Choosing the severity, and what never goes in</h3>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the rejection is a failure. Should this be <code>ERROR</code>?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>No — <code>WARN</code> is correct. Severity is about <strong>who needs to act</strong>, not about how bad the word sounds. Payment did its job perfectly: it validated an amount, found a mismatch, and declined. Nothing in Payment is broken, so paging the Payment on-call at 3am would be wrong.</p>
+<p>But it is not routine either — something upstream is behaving abnormally and it is costing checkouts. That is precisely what <code>WARN</code> means: notable, actionable in daylight, not an outage.</p>
+<p><code>INFO</code>, which is where this started, is the actual bug. It is why 25 rejections sat invisible among 838 lines at the same level.</p></div></details></div>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>which fields did we deliberately <em>not</em> put in this event?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>Card numbers, payment tokens, customer details, order IDs, and the raw request payload. None of it is here.</p>
+<p>Structured logging makes accidental exfiltration easy: <code>extra={**request.dict()}</code> is one keystroke away and would ship whatever the request happened to contain, forever, to a log store with a different access model than your database. Choose fields deliberately, one at a time, and prefer the narrowest value that answers the question — the two integers above explain this incident completely without a single piece of customer data.</p></div></details></div>
+<h3 id="read-the-events">Read the events</h3>
+<p>Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Structured payment-validation events</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a>. You should see 25 rows at <code>WARN</code> — not <code>INFO</code> — and a Fields sidebar listing every business field at 100%, meaning the field is on every single event rather than on a lucky subset.</p>
+<p><strong>Expand one row</strong> to see the fields attached to it. OpenTelemetry sends them as Loki structured metadata, so they are attributes on the row rather than text buried in the message.</p>
+<p>Fields should include:</p>
+<ul class="list"><li><code>event_name=payment.amount_validation_rejected</code></li><li><code>reason_code=minor_unit_mismatch</code></li><li><code>expected_minor_units=1000</code></li><li><code>received_minor_units=1001</code></li><li><code>checkout_rounding_mode=HALF_UP</code></li><li><code>payment_rounding_mode=HALF_EVEN</code></li><li>Trace and span context supplied by OpenTelemetry</li></ul>
+<p>Compare that with what the same rejection looked like earlier: <code>validate_amount -&gt; False</code>. Every field in that sidebar is now something you can filter and group by.</p>
+<details class="reveal reveal-spoiler"><summary>Show the finished Explore view</summary><div class="reveal-body"><figure class="shot"><button class="shot-zoom" type="button" aria-label="Enlarge screenshot"><img src="images/04-structured-events.png" alt="Explore showing WARN events with every business field listed in the Fields sidebar at 100%" loading="lazy"></button><figcaption>Explore showing WARN events with every business field listed in the Fields sidebar at 100%</figcaption></figure>
+<p>Hold this next to the section 1 screenshot of the same service. Same log stream, same incident — one is 838 lines of flat <code>info</code> with nothing to filter on, the other is 25 warnings with a sidebar full of business fields.</p></div></details>
+<p>Open one event&#x27;s <strong>Open trace</strong> link. In the trace, use <strong>Logs for this span</strong> to come back to the correlated event. If either direction is unavailable, use the fresh trace ID printed by the checks and continue; report the correlation-link issue separately from the telemetry result.</p>
+<p>If the event does not appear:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab recover logs">Copy</button></div><pre><code><span class="cmd">./lab recover logs</span></code></pre></div>
+<h3 id="what-you-can-now-put-in-the-incident-timeline">What you can now put in the incident timeline</h3>
+<ol class="list"><li>Payment expected <span class="blank"></span> minor units and received <span class="blank"></span>.</li><li>Checkout used <span class="blank"></span>; Payment used <span class="blank"></span>.</li><li><code>WARN</code> is appropriate because <span class="blank"></span>.</li></ol>
+<details class="reveal reveal-answer"><summary>Check your evidence</summary><div class="reveal-body"><ol class="list"><li>Payment expected 1000 minor units and received 1001.</li><li>Checkout used <code>HALF_UP</code>; Payment used <code>HALF_EVEN</code>.</li><li>Payment handled the validation rejection correctly, but the event signals abnormal upstream behaviour that matters operationally. It is not a Payment service crash. Note that the old prose line was <code>INFO</code>, which is why it never stood out from routine chatter.</li></ol>
+<p>Integer minor units avoid ambiguous formatted currency strings and preserve the exact one-cent difference. Card data, payment tokens, customer details, order IDs, and raw payloads are intentionally absent.</p></div></details>
+<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
+<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
+<aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>you can now explain the mismatch using a structured event correlated to the failed span.</p></aside>
+<hr class="rule"><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Isolate</span><span class="pill-reason">Payment amount validation</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Explain</span><span class="pill-reason">HALF_UP vs HALF_EVEN, 1001 against an expected 1000</span><span class="visually-hidden">: answered</span></li></ul></section>
+<section class="step" id="5-do-it-again-cold" data-step="5-do-it-again-cold" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="yes"><header class="step-head"><span class="step-badge">5</span><span class="step-time">10:20</span><h2 id="5-do-it-again-cold-title">Do it again, cold</h2></header><p>The rejections start again.</p>
+<p>This time nothing gets added, changed, or deployed — the evidence you need is already in the service. Freeze the code and reproduce the incident:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic incident
+./lab check metrics
+./lab check traces
+./lab check logs">Copy</button></div><pre><code><span class="cmd">./lab traffic incident</span>
+<span class="cmd">./lab check metrics</span>
+<span class="cmd">./lab check traces</span>
+<span class="cmd">./lab check logs</span></code></pre></div>
+<p><strong>Start a timer when those commands finish</strong>, and stop it when you have all four answers. Complete <a href="worksheet.html">worksheet.md</a> by opening the views in this order — open it in a Markdown preview too, because its answer section is behind a toggle.</p>
+<h3 id="detect">Detect</h3>
+<p>Open <a class="view-link" href="http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s" target="_blank" rel="noopener"><span class="view-name">Runtime and checkout metrics</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s</span></a>. Record what changed, the business-failure percentage, and the time window.</p>
+<h3 id="scope">Scope</h3>
+<p>On the same dashboard, use <strong>Checkout outcomes by segment</strong>. Record the affected and unaffected groups, plus one claim the evidence would not support.</p>
+<h3 id="isolate">Isolate</h3>
+<p>Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Failed payment-validation traces</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a> and click a Trace ID from the run you just made. Record the failing operation, the trace ID, what the trace establishes, and what it does not explain.</p>
+<h3 id="explain">Explain</h3>
+<p>From the red span, follow <strong>Logs for this span</strong> to the correlated event. Record expected and received minor units, the difference, and both rounding modes.</p>
+<p>Only after completing the worksheet, open its answer section.</p>
+<h3 id="time-the-second-run">Time the second run</h3>
+<p>Three minutes at 09:15 produced no reliable answer. The same incident, the same 100 requests, just took you under a minute end to end — and the last code change happened <em>before</em> this run started. That gap is the whole subject of this lab.</p>
+<h3 id="what-you-would-do-next-for-completeness">What you would do next, for completeness</h3>
+<p>Nothing in this lab fixes the bug, deliberately: the exercise is about evidence, not about <code>Decimal</code>. For closure — Checkout rounds with <code>HALF_UP</code> and Payment with <code>HALF_EVEN</code> (both in <code>services/shared/domain.py</code>). A discounted CAD total lands on exactly 10.005 — so <code>HALF_UP</code> rounds the half-cent away from zero and sends 1001, while <code>HALF_EVEN</code> rounds it to the nearest even cent and expects 1000. The repair is to make rounding an explicit shared contract instead of a private choice each service makes quietly. That you can state the fix in one sentence, and name the file, is the entire return on the thirty lines you added.</p>
+<hr class="rule"></section>
+<section class="step" id="6-the-retro" data-step="6-the-retro" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="yes"><header class="step-head"><span class="step-badge">6</span><span class="step-time">11:00</span><h2 id="6-the-retro-title">The retro</h2></header><p>Incident closed. Now the part that decides whether the next one goes like this or like 09:15.</p>
+<h3 id="what-the-three-changes-were-together">What the three changes were, together</h3>
+<p>You added about thirty lines across two files. They were not three ways of logging the same thing — each signal does a job the other two structurally cannot:</p>
+<div class="table-wrap"><table><thead><tr><th>Question</th><th>Signal</th><th>Why this one</th><th>What it cannot do</th></tr></thead><tbody><tr><td><strong>Detect / Scope</strong></td><td>Counter with bounded attributes</td><td>Aggregates cheaply and continuously; cost is fixed no matter the traffic</td><td>Cannot show you any individual request</td></tr><tr><td><strong>Isolate</strong></td><td>Span with an error status</td><td>Keeps per-request structure and crosses service boundaries</td><td>Does not carry the values behind the decision</td></tr><tr><td><strong>Explain</strong></td><td>Structured event, correlated</td><td>Carries exact values and a reason code for one occurrence</td><td>Too expensive and too detailed to aggregate over</td></tr></tbody></table></div>
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 250" role="img" aria-labelledby="fig-shapes-title fig-shapes-desc">
+      <title id="fig-shapes-title">What each signal physically stores</title>
+      <desc id="fig-shapes-desc">A counter stores a handful of running totals, one per attribute combination, at a cost that does not grow with traffic. A trace stores one nested record per request, showing where an operation failed. A structured event stores one detailed record per occurrence, carrying the values that explain why.</desc>
+
+      <!-- counter -->
+      <rect class="d-surface" x="8" y="8" width="228" height="196" rx="10" stroke-width="1"/>
+      <text class="d-title" x="24" y="32">Counter</text>
+      <text class="d-label" x="24" y="50">Detect · Scope</text>
+      <rect class="d-ok-soft" x="24" y="64" width="196" height="18" rx="4" stroke-width="1"/>
+      <text class="d-mono" x="34" y="77">success · CAD</text>
+      <text class="d-count" x="192" y="77">50</text>
+      <rect class="d-ok-soft" x="24" y="88" width="196" height="18" rx="4" stroke-width="1"/>
+      <text class="d-mono" x="34" y="101">success · USD</text>
+      <text class="d-count" x="192" y="101">25</text>
+      <rect class="d-bad-soft" x="24" y="112" width="196" height="18" rx="4" stroke-width="1"/>
+      <text class="d-mono" x="34" y="125">rejected · CAD</text>
+      <text class="d-count" x="192" y="125">25</text>
+      <text class="d-label" x="24" y="154">A few rows, whatever the traffic.</text>
+      <text class="d-label" x="24" y="172">Cheap to keep, cheap to ask.</text>
+      <text class="d-mono-soft" x="24" y="192">no individual request inside</text>
+
+      <!-- trace -->
+      <rect class="d-surface" x="256" y="8" width="228" height="196" rx="10" stroke-width="1"/>
+      <text class="d-title" x="272" y="32">Trace</text>
+      <text class="d-label" x="272" y="50">Isolate</text>
+      <rect class="d-ok-soft" x="272" y="64" width="196" height="12" rx="3" stroke-width="1"/>
+      <rect class="d-ok-soft" x="282" y="80" width="52" height="12" rx="3" stroke-width="1"/>
+      <rect class="d-ok-soft" x="282" y="96" width="150" height="12" rx="3" stroke-width="1"/>
+      <rect class="d-bad-soft" x="292" y="112" width="86" height="12" rx="3" stroke-width="1"/>
+      <text class="d-label" x="272" y="154">One record per request, nested,</text>
+      <text class="d-label" x="272" y="172">crossing every service boundary.</text>
+      <text class="d-mono-soft" x="272" y="192">no values behind the decision</text>
+
+      <!-- event -->
+      <rect class="d-surface" x="504" y="8" width="228" height="196" rx="10" stroke-width="1"/>
+      <text class="d-title" x="520" y="32">Structured event</text>
+      <text class="d-label" x="520" y="50">Explain</text>
+      <rect class="d-warn-soft" x="520" y="60" width="196" height="70" rx="6" stroke-width="1.2"/>
+      <text class="d-mono" x="530" y="76">reason_code</text>
+      <text class="d-mono-soft" x="530" y="92">expected 1000</text>
+      <text class="d-mono-soft" x="530" y="106">received 1001</text>
+      <text class="d-mono-soft" x="530" y="122">HALF_UP vs HALF_EVEN</text>
+      <text class="d-label" x="520" y="154">One rich record per occurrence,</text>
+      <text class="d-label" x="520" y="172">correlated to the failing span.</text>
+      <text class="d-mono-soft" x="520" y="192">too detailed to aggregate over</text>
+
+      <text class="d-label" x="8" y="230">Each signal gets the cardinality it can afford — which is why none of the three can stand in for the others.</text>
+    </svg>
+  </div>
+  <figcaption><strong>Three storage shapes, three jobs.</strong> The counter is an aggregate with no requests in it, the trace keeps per-request structure without the values, and the event keeps the values for one occurrence.</figcaption>
+</figure>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>could you have done all of this with structured logs alone?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>You could get answers, but not affordably, and not reliably.</p>
+<p>Detect and Scope by log query means counting matching lines over a window every time you ask — at 1,000 checkouts a minute that is scanning millions of lines to produce a number a counter already holds, and it gets slower exactly when you need it most, during an incident. Alerting on it is worse.</p>
+<p>Isolate by logs alone means reconstructing causality from timestamps across three services. Without propagated trace context there is no reliable way to know which Payment rejection belongs to which Checkout request, and timestamps lie under concurrency.</p>
+<p>The right conclusion is not &quot;logs are bad.&quot; It is that the question you need answered determines the signal, and a service that can explain itself carries all three.</p></div></details></div>
+<h3 id="the-gate">The gate</h3>
+<p>The change that mattered was not any of the thirty lines — it was that a service in production could not answer four ordinary questions about itself, and nobody noticed until customers did. Before approving a feature, ask whether its telemetry can answer:</p>
+<ul class="list"><li><strong>Detect:</strong> Is there a signal showing the feature is fulfilling its responsibility?</li><li><strong>Scope:</strong> Could we tell when behaviour changed and how widely?</li><li><strong>Isolate:</strong> Can one operation be followed across its meaningful boundaries, including where it failed?</li><li><strong>Explain:</strong> Are key decisions recorded as structured, safe, correlated events?</li></ul>
+<p>For this checkout system, identify the evidence that now satisfies each question.</p>
+<p>The key outcome is not that you used Grafana. It is that you diagnosed the incident without adding telemetry and redeploying after the investigation began.</p>
+<h3 id="connection-to-the-presentation">Connection to the presentation</h3>
+<p>The presentation described a reactive loop where teams add the evidence they wish they had during an incident. Your 09:15 was that loop&#x27;s starting position. Everything you did between 09:31 and 10:03 was work that team does <em>after</em> the pager goes off, under time pressure, with a deploy for each attempt. Your 10:20 was what the same incident costs when the evidence is already there.</p>
+<p>The Microsoft Teams study cited in the presentation found that many incidents were first detected by people rather than automated monitoring, and that missing telemetry contributed to delayed root-cause identification in difficult cases.</p></section>
+<section class="step" id="stand-down" data-step="stand-down" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="yes"><header class="step-head"><h2 id="stand-down-title">Stand down</h2></header><p>To stop containers while preserving their current telemetry and completed code for later review:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab stop">Copy</button></div><pre><code><span class="cmd">./lab stop</span></code></pre></div>
+<p>To restore the starter state and delete local telemetry:</p>
+<div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab reset">Copy</button></div><pre><code><span class="cmd">./lab reset</span></code></pre></div></section>
+  </main>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox-close" type="button" aria-label="Close">×</button>
+  <img alt="">
+</div>
+
+<script>
+/* Progressive enhancement only: with scripts off the page stays complete. */
+(function () {
+  "use strict";
+
+  var guard = function (name, fn) {
+    try { fn(); } catch (error) { console.warn(name + " unavailable:", error); }
+  };
+
+  /* Copy buttons ------------------------------------------------------- */
+  guard("copy", function () {
+    document.querySelectorAll(".copy").forEach(function (button) {
+      button.hidden = false;
+      button.addEventListener("click", function () {
+        var text = button.getAttribute("data-copy") || "";
+        var done = function () {
+          button.textContent = "Copied";
+          button.setAttribute("data-copied", "");
+          window.setTimeout(function () {
+            button.textContent = "Copy";
+            button.removeAttribute("data-copied");
+          }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, fallback);
+        } else {
+          fallback();
+        }
+        function fallback() {
+          var area = document.createElement("textarea");
+          area.value = text;
+          area.setAttribute("readonly", "");
+          area.style.position = "fixed";
+          area.style.opacity = "0";
+          document.body.appendChild(area);
+          area.select();
+          try { document.execCommand("copy"); done(); } catch (error) { /* ignore */ }
+          document.body.removeChild(area);
+        }
+      });
+    });
+  });
+
+  /* Sidebar: scroll-spy and the investigation-state readout ------------- */
+  guard("scroll-spy", function () {
+    var steps = Array.prototype.slice.call(document.querySelectorAll(".step[data-step]"));
+    var links = {};
+    document.querySelectorAll("[data-nav]").forEach(function (link) {
+      links[link.getAttribute("data-nav")] = link;
+    });
+    var readout = document.querySelectorAll("[data-readout]");
+    if (!steps.length) { return; }
+
+    var apply = function (step) {
+      Object.keys(links).forEach(function (key) { links[key].classList.remove("current"); });
+      var link = links[step.id];
+      if (link) {
+        link.classList.add("current");
+        if (link.scrollIntoView) { link.scrollIntoView({ block: "nearest" }); }
+      }
+      readout.forEach(function (item) {
+        var answered = step.getAttribute("data-" + item.getAttribute("data-readout")) || "unknown";
+        item.setAttribute("data-answered", answered);
+        item.querySelector(".readout-glyph").textContent =
+          answered === "yes" ? "✅" : answered === "no" ? "❌" : "—";
+      });
+    };
+
+    var current = null;
+    var pick = function () {
+      var best = steps[0];
+      steps.forEach(function (step) {
+        if (step.getBoundingClientRect().top <= window.innerHeight * 0.35) { best = step; }
+      });
+      if (best !== current) { current = best; apply(best); }
+    };
+
+    var ticking = false;
+    window.addEventListener("scroll", function () {
+      if (ticking) { return; }
+      ticking = true;
+      window.requestAnimationFrame(function () { pick(); ticking = false; });
+    }, { passive: true });
+    pick();
+  });
+
+  /* Mobile navigation --------------------------------------------------- */
+  guard("nav-toggle", function () {
+    var toggle = document.querySelector(".nav-toggle");
+    var sidebar = document.getElementById("sidebar");
+    if (!toggle || !sidebar) { return; }
+    toggle.addEventListener("click", function () {
+      var open = sidebar.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    sidebar.addEventListener("click", function (event) {
+      if (event.target.closest("a")) {
+        sidebar.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+
+  /* Printing: paper cannot be clicked, so every answer is opened for it --- */
+  guard("print", function () {
+    var opened = [];
+    window.addEventListener("beforeprint", function () {
+      opened = Array.prototype.slice.call(document.querySelectorAll("details:not([open])"));
+      opened.forEach(function (item) { item.open = true; });
+    });
+    window.addEventListener("afterprint", function () {
+      opened.forEach(function (item) { item.open = false; });
+      opened = [];
+    });
+  });
+
+  /* Screenshot lightbox -------------------------------------------------- */
+  guard("lightbox", function () {
+    var box = document.getElementById("lightbox");
+    if (!box) { return; }
+    var image = box.querySelector("img");
+    var close = box.querySelector(".lightbox-close");
+    var opener = null;
+
+    var hide = function () {
+      box.hidden = true;
+      image.removeAttribute("src");
+      if (opener) { opener.focus(); opener = null; }
+    };
+
+    document.querySelectorAll(".shot-zoom").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var source = button.querySelector("img");
+        opener = button;
+        image.src = source.getAttribute("src");
+        image.alt = source.getAttribute("alt") || "";
+        box.hidden = false;
+        close.focus();
+      });
+    });
+
+    close.addEventListener("click", hide);
+    box.addEventListener("click", function (event) {
+      if (event.target === box) { hide(); }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !box.hidden) { hide(); }
+      if (event.key === "Tab" && !box.hidden) { event.preventDefault(); close.focus(); }
+    });
+  });
+})();
+
+</script>
+</body>
+</html>

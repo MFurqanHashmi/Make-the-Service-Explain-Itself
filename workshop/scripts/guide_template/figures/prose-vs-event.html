@@ -1,0 +1,50 @@
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 268" role="img" aria-labelledby="fig-event-title fig-event-desc">
+      <title id="fig-event-title">The same rejection as prose and as a structured event</title>
+      <desc id="fig-event-desc">On the left, the rejection is one INFO line reading validate_amount arrow False: a single opaque string with nothing to filter on. On the right, the same rejection is a WARN event carrying named fields — event_name, reason_code, expected and received minor units, and both rounding modes — with trace and span IDs attached automatically by the SDK.</desc>
+
+      <text class="d-title" x="8" y="16">before · a sentence</text>
+      <rect class="d-surface" x="8" y="28" width="330" height="60" rx="8" stroke-width="1"/>
+      <text class="d-mono-soft" x="22" y="52">INFO</text>
+      <text class="d-mono" x="62" y="52">validate_amount -&gt; False</text>
+      <text class="d-mono-soft" x="22" y="72">…among 838 other INFO lines</text>
+
+      <text class="d-label" x="8" y="112">Nothing to filter on:</text>
+      <text class="d-label" x="8" y="130">no outcome, no currency, no amounts,</text>
+      <text class="d-label" x="8" y="148">no link to the request it belongs to.</text>
+      <text class="d-label" x="8" y="176">Three different phrasings of this one</text>
+      <text class="d-label" x="8" y="194">decision drifted apart as the code was</text>
+      <text class="d-label" x="8" y="212">maintained, so a text search finds a third</text>
+      <text class="d-label" x="8" y="230">of the truth.</text>
+
+      <path class="d-hair" stroke-width="1" d="M370 8 V254"/>
+
+      <text class="d-title" x="402" y="16">after · fields</text>
+      <rect class="d-warn-soft" x="402" y="28" width="330" height="196" rx="8" stroke-width="1.2"/>
+      <text class="d-mono" x="416" y="50">WARN</text>
+      <text class="d-mono-soft" x="458" y="50">Payment amount validation rejected</text>
+      <line class="d-hair" stroke-width="1" x1="416" y1="60" x2="718" y2="60"/>
+
+      <text class="d-mono-soft" x="416" y="80">event_name</text>
+      <text class="d-mono" x="566" y="80">payment.amount_…rejected</text>
+      <text class="d-mono-soft" x="416" y="100">reason_code</text>
+      <text class="d-mono" x="566" y="100">minor_unit_mismatch</text>
+      <text class="d-mono-soft" x="416" y="120">expected_minor_units</text>
+      <text class="d-mono" x="566" y="120">1000</text>
+      <text class="d-mono-soft" x="416" y="140">received_minor_units</text>
+      <text class="d-mono" x="566" y="140">1001</text>
+      <text class="d-mono-soft" x="416" y="160">checkout_rounding_mode</text>
+      <text class="d-mono" x="566" y="160">HALF_UP</text>
+      <text class="d-mono-soft" x="416" y="180">payment_rounding_mode</text>
+      <text class="d-mono" x="566" y="180">HALF_EVEN</text>
+
+      <line class="d-hair" stroke-width="1" x1="416" y1="192" x2="718" y2="192"/>
+      <text class="d-mono-soft" x="416" y="212">trace_id · span_id</text>
+      <text class="d-mono" x="566" y="212">attached by the SDK</text>
+
+      <text class="d-label" x="402" y="246">Every line above is a field you can filter, group and count.</text>
+    </svg>
+  </div>
+  <figcaption><strong>Same rejection, twice.</strong> One version has to be read; the other can be queried — and because it is emitted inside the validation span, it points back at the exact operation that produced it.</figcaption>
+</figure>
