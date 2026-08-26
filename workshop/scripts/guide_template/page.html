@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+{{style}}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to the guide</a>
+
+<header class="topbar">
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar">
+    <span aria-hidden="true">☰</span> Steps
+  </button>
+  <p class="topbar-title">{{title}}</p>
+  <details class="topbar-views">
+    <summary>Open a view <span aria-hidden="true">↗</span></summary>
+    <ul class="views">{{views}}</ul>
+  </details>
+</header>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <nav aria-label="Guide navigation">
+      <p class="nav-label">Live views</p>
+      <ul class="views">{{views}}</ul>
+      <p class="nav-label">The incident</p>
+      <ol class="nav-steps">{{nav}}</ol>
+      <p class="nav-label">What you can answer</p>
+      <ul class="readout" id="readout">{{readout}}</ul>
+    </nav>
+  </aside>
+
+  <main class="content" id="content">
+{{body}}
+  </main>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox-close" type="button" aria-label="Close">×</button>
+  <img alt="">
+</div>
+
+<script>
+{{script}}
+</script>
+</body>
+</html>

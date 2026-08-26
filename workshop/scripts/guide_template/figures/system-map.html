@@ -1,0 +1,41 @@
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 196" role="img" aria-labelledby="fig-map-title fig-map-desc">
+      <title id="fig-map-title">The checkout system you are on call for</title>
+      <desc id="fig-map-desc">A traffic generator sends checkouts to the Checkout API, which calls the Inventory service and the Payment service. Every checkout returns HTTP 200 to the caller, whether the business outcome succeeded or was rejected.</desc>
+
+      <rect class="d-surface" x="8" y="66" width="132" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="24" y="90">Traffic generator</text>
+      <text class="d-mono-soft" x="24" y="107">100 checkouts a run</text>
+
+      <path class="d-line" stroke-width="1.4" d="M140 92 h72"/>
+      <path class="d-line" stroke-width="1.4" d="M206 86 l6 6 -6 6"/>
+
+      <rect class="d-info-soft" x="212" y="58" width="150" height="68" rx="8" stroke-width="1.2"/>
+      <text class="d-title" x="230" y="84">Checkout API</text>
+      <text class="d-mono-soft" x="230" y="102">decides the outcome</text>
+      <text class="d-mono-soft" x="230" y="118">and returns 200</text>
+
+      <path class="d-line" stroke-width="1.4" d="M362 78 h60 l0 -34 h60"/>
+      <path class="d-line" stroke-width="1.4" d="M476 38 l6 6 -6 6"/>
+      <path class="d-line" stroke-width="1.4" d="M362 106 h60 l0 40 h60"/>
+      <path class="d-line" stroke-width="1.4" d="M476 140 l6 6 -6 6"/>
+
+      <rect class="d-surface" x="482" y="18" width="150" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="500" y="42">Inventory service</text>
+      <text class="d-mono-soft" x="500" y="59">reserves stock</text>
+
+      <rect class="d-surface" x="482" y="120" width="150" height="52" rx="8" stroke-width="1"/>
+      <text class="d-title" x="500" y="144">Payment service</text>
+      <text class="d-mono-soft" x="500" y="161">validates the amount</text>
+
+      <path class="d-hair" stroke-width="1.2" stroke-dasharray="5 4" d="M262 126 v34 h-150 v-42"/>
+      <path class="d-hair" stroke-width="1.2" d="M106 124 l6 -6 6 6"/>
+      <rect class="d-ok-soft" x="150" y="151" width="74" height="18" rx="9" stroke-width="1"/>
+      <text class="d-mono" x="161" y="164">HTTP 200</text>
+      <text class="d-label" x="240" y="164">back to the caller every time —</text>
+      <text class="d-label" x="240" y="182">even when the checkout was rejected</text>
+    </svg>
+  </div>
+  <figcaption><strong>Three services, one deterministic incident.</strong> The response code is the same on every path, which is exactly why it tells you nothing about whether checkout is doing its job.</figcaption>
+</figure>
