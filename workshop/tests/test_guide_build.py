@@ -68,6 +68,10 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(5, BODY.count('<ul class="state-grid">'))
         self.assertIn('<div class="prediction">', BODY)
 
+    def test_no_table_renders_without_rows(self):
+        """The state tables become pills; their header rows have to leave with them."""
+        self.assertNotIn("<tbody></tbody>", GUIDE)
+
     def test_in_page_anchors_resolve(self):
         targets = set(re.findall(r'id="([^"]+)"', GUIDE))
         for anchor in set(re.findall(r'href="#([^"]+)"', GUIDE)):

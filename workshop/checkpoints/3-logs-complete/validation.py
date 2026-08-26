@@ -8,7 +8,8 @@ logger = logging.getLogger("payment.validation")
 # The logging this service shipped with: prose only, no business fields, and
 # three phrasings that drifted apart as the code was maintained. It is emitted
 # at INFO, so rejections are indistinguishable from routine chatter.
-# LAB 2 retires the only call site.
+# LAB 3 replaces the only call site; LAB 2 keeps it for one section, so the
+# prose and its structured replacement can be compared side by side.
 _WEAK_MESSAGES = (
     "amount check did not pass",
     "Declining authorization: totals differ",

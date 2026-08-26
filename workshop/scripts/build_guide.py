@@ -294,8 +294,6 @@ def _blockquote(reader):
     text = " ".join(body).strip()
     for marker, kind, label in [
         ("**Your move:**", "move", "Your move"),
-        ("**This is the source text", "note", "How to read this"),
-        ("**Read this file", "note", "How to read this"),
     ]:
         if text.startswith(marker):
             return _callout(kind, label, text, marker if marker.endswith("**") else None)
@@ -415,8 +413,11 @@ def split_sections(lines):
 def take_state_table(body):
     """Pull a Detect/Scope/Isolate/Explain table out of a section body.
 
-    Returns (remaining lines, {question: (glyph, reason)}) so the table can be
-    rendered as status pills and reused in the sidebar.
+    Returns (lines before the table, lines after it, {question: (glyph, reason)},
+    the heading lines it was introduced by) so the table can be rendered as
+    status pills in its own place and reused in the sidebar. The rows above
+    `| **Detect**` — the header and its `| --- |` separator — have to come away
+    with it, or the page keeps a table that renders nothing but a header.
     """
     for index, line in enumerate(body):
         if not line.startswith("| **Detect**"):
@@ -432,12 +433,16 @@ def take_state_table(body):
             glyph, _, reason = cells[1].partition(" ")
             state[question] = (glyph, descriptor or reason)
         start = index
-        if start and body[start - 1].startswith("### "):
+        while start and body[start - 1].startswith("|"):
             start -= 1
         while start and not body[start - 1].strip():
             start -= 1
-        return body[:start] + body[end:], state, body[max(start, 0):index]
-    return body, None, []
+        if start and body[start - 1].startswith("### "):
+            start -= 1
+            while start and not body[start - 1].strip():
+                start -= 1
+        return body[:start], body[end:], state, body[start:index]
+    return body, [], None, []
 
 
 def state_block(heading_lines, state):
@@ -477,7 +482,7 @@ def render_document(md_path):
     running_state = {question: ("—", "not yet") for question in STATE_QUESTIONS}
 
     for number, (heading, section_body) in enumerate(sections, start=1):
-        section_body, state, state_heading = take_state_table(section_body)
+        section_body, after_state, state, state_heading = take_state_table(section_body)
         if state:
             running_state = state
             tracked = True
@@ -504,7 +509,10 @@ def render_document(md_path):
         chip = f'<span class="step-time">{time_chip}</span>' if time_chip else ""
         rendered = render_blocks(section_body, figures_used)
         if state:
+            # The pills stand where the table stood, so the heading that
+            # introduces them is not left stranded above a section divider.
             rendered += state_block(state_heading, state)
+        rendered += render_blocks(after_state, figures_used)
 
         data_state = " ".join(
             f'data-{question.lower()}="{"yes" if glyph == chr(9989) else "no" if glyph == chr(10060) else "unknown"}"'

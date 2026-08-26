@@ -3,9 +3,7 @@
 Complete this after all three instrumentation checkpoints. Do not change code during the
 diagnosis.
 
-> `./lab guide worksheet` opens this as a page with the Grafana views built in. To fill it in here
-> instead, read it in a Markdown preview (`Cmd+Shift+V` in VS Code) — the answer section at the
-> bottom is behind a toggle, and a plain text editor shows it immediately.
+> Keep the answer section at the bottom closed until every other line is filled in.
 
 ## Detect
 

@@ -774,11 +774,10 @@ html { scroll-behavior: smooth; }
 
   <main class="content" id="content">
 <h1 class="doc-title">Checkout is quietly failing</h1>
-<aside class="callout callout-note"><p class="callout-label">How to read this</p><p><strong>This is the source text of the lab guide.</strong> The version to work from is <code>guide.html</code> — run <code>./lab guide</code> — which adds one-click Grafana views, copy buttons and diagrams. If you would rather stay here, read it in a Markdown preview (<code>Cmd+Shift+V</code> in VS Code): both versions hide answers and screenshots behind toggles, and a plain text editor shows them all immediately.</p></aside>
 <p><strong>09:12.</strong> You are on call for checkout. A payments teammate messages you: <em>&quot;a few customers are saying checkout does nothing.&quot;</em></p>
 <p>No alert fired. Every dashboard you have is green. Every request in the last hour returned HTTP 200. Nobody can tell you how many customers, or which ones, or what &quot;does nothing&quot; means.</p>
 <p>You are going to work this incident to a root cause. You cannot get there with the telemetry this service ships with today, so three times along the way you will stop, add one small piece of instrumentation to the running system, and use it to answer the question in front of you. Every code block and every Grafana view is supplied — you never configure the telemetry stack or write a query.</p>
-<section class="step" id="before-you-start" data-step="before-you-start" data-detect="unknown" data-scope="unknown" data-isolate="unknown" data-explain="unknown"><header class="step-head"><h2 id="before-you-start-title">Before you start</h2></header><p>The stack must already be built. If you have not done it yet, run <code>./lab setup</code> once while online (see <a href="../README.md">README.md</a>). It only has to happen once.</p></section>
+<section class="step" id="before-you-start" data-step="before-you-start" data-detect="unknown" data-scope="unknown" data-isolate="unknown" data-explain="unknown"><header class="step-head"><h2 id="before-you-start-title">Before you start</h2></header><p>The stack must already be built. If you have not done it yet, run <code>./lab setup</code> once while online. It only has to happen once.</p></section>
 <section class="step" id="the-system-you-are-on-call-for" data-step="the-system-you-are-on-call-for" data-detect="unknown" data-scope="unknown" data-isolate="unknown" data-explain="unknown"><header class="step-head"><h2 id="the-system-you-are-on-call-for-title">The system you are on call for</h2></header><figure class="diagram">
   <div class="diagram-scroll">
     <svg viewBox="0 0 740 196" role="img" aria-labelledby="fig-map-title fig-map-desc">
@@ -821,14 +820,12 @@ html { scroll-behavior: smooth; }
   <figcaption><strong>Three services, one deterministic incident.</strong> The response code is the same on every path, which is exactly why it tells you nothing about whether checkout is doing its job.</figcaption>
 </figure>
 <p>This is the same checkout world as the presentation, with a different incident. The services are already running locally in Docker. <strong>Every request returns HTTP 200, even when the checkout business outcome is rejected.</strong></p></section>
-<section class="step" id="what-you-will-be-asked" data-step="what-you-will-be-asked" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><h2 id="what-you-will-be-asked-title">What you will be asked</h2></header><p>Four questions decide how this hour goes. Right now you can answer none of them, and you will keep coming back to this table as the incident develops.</p>
-<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
-<hr class="rule"><ul class="state-grid"><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Detect</span><span class="pill-reason">is checkout behaving correctly?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Scope</span><span class="pill-reason">which requests are affected?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">where did one operation fail?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">what application condition caused it?</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<section class="step" id="what-you-will-be-asked" data-step="what-you-will-be-asked" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><h2 id="what-you-will-be-asked-title">What you will be asked</h2></header><p>Four questions decide how this hour goes. Right now you can answer none of them, and you will keep coming back to this table as the incident develops.</p><ul class="state-grid"><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Detect</span><span class="pill-reason">is checkout behaving correctly?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Scope</span><span class="pill-reason">which requests are affected?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">where did one operation fail?</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">what application condition caused it?</span><span class="visually-hidden">: not answered</span></li></ul><hr class="rule"></section>
 <section class="step" id="0-get-your-tools-up" data-step="0-get-your-tools-up" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><span class="step-badge">0</span><h2 id="0-get-your-tools-up-title">Get your tools up</h2></header><p>Before the first question lands, make sure the environment is running.</p>
 <div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab start
 ./lab ready">Copy</button></div><pre><code><span class="cmd">./lab start</span>
 <span class="cmd">./lab ready</span></code></pre></div>
-<p><code>./lab start</code> can take two to three minutes the first time. Expected readiness message:</p>
+<p><code>./lab start</code> can take two to three minutes the first time. On a cold start <code>./lab ready</code> first prints a line about waiting for the telemetry backends; what you are waiting for is this:</p>
 <pre class="plain"><code>READY: checkout, inventory, payment, metrics, traces, logs, and Grafana are available
 PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlation are provisioned</code></pre>
 <p>If <code>./lab ready</code> reports that a backend is not serving data yet, <strong>run it again</strong> — the telemetry backends sometimes need a second attempt on a cold start. If it still fails, run <code>./lab restart-services</code> and then <code>./lab ready</code>.</p>
@@ -844,12 +841,12 @@ PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlat
 <span class="cmd">./lab checkpoint metrics     # restore correct code for a stage: metrics|traces|logs</span></code></pre></div>
 <p><code>./lab checkpoint &lt;stage&gt;</code> restores code only, so it is also how you catch up if you fall behind. <code>./lab recover &lt;stage&gt;</code> does the same and then regenerates and re-verifies the evidence. Both are cumulative: <code>traces</code> includes the metrics change, and restoring an earlier stage discards later edits.</p>
 <hr class="rule"></section>
-<section class="step" id="1-three-minutes-with-what-you-have" data-step="1-three-minutes-with-what-you-have" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><span class="step-badge">1</span><span class="step-time">09:15</span><h2 id="1-three-minutes-with-what-you-have-title">Three minutes with what you have</h2></header><p>You start where anyone starts: the logs. That is all this service has — prose logs, the thing most services ship with and nothing else.</p>
+<section class="step" id="1-three-minutes-with-what-you-have" data-step="1-three-minutes-with-what-you-have" data-detect="no" data-scope="no" data-isolate="no" data-explain="no"><header class="step-head"><span class="step-badge">1</span><span class="step-time">09:15</span><h2 id="1-three-minutes-with-what-you-have-title">Three minutes with what you have</h2></header><p>You start where anyone starts: the logs. There is runtime telemetry underneath — CPU, memory, and the HTTP spans auto-instrumentation records for free — but none of it describes what a checkout <em>decided</em>. For that, prose logs are all this service has, which is what most services ship with.</p>
 <p>Reproduce what the customers hit:</p>
 <div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic incident">Copy</button></div><pre><code><span class="cmd">./lab traffic incident</span></code></pre></div>
 <p>That is 100 checkouts. Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Noisy starting logs</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D~%5C%22checkout%7Cinventory%7Cpayment%5C%22%7D%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a>. You should be looking at something like this:</p>
 <figure class="shot"><button class="shot-zoom" type="button" aria-label="Enlarge screenshot"><img src="images/01-noisy-logs.png" alt="Explore showing 838 undifferentiated INFO log lines for 100 checkouts" loading="lazy"></button><figcaption>Explore showing 838 undifferentiated INFO log lines for 100 checkouts</figcaption></figure>
-<p>Two details in that screenshot are the whole problem. The volume histogram is a single flat band of <code>info</code> — 838 lines, one severity. And the Fields sidebar on the left offers <code>service_name</code>, <code>severity_text</code>, and the file and line each message came from, but not one field describing what a checkout actually <em>did</em>.</p>
+<p>Two details in that screenshot are the whole problem. The volume histogram is a single flat band of <code>info</code> — 838 lines, one severity. And the Fields sidebar on the left offers <code>service_name</code>, <code>severity_text</code>, and the file and line each message came from, but not one field describing what a checkout actually <em>did</em>. The two business-looking fields in that list, <code>event_name</code> and <code>component</code>, sit at 1%: they belong to a startup marker the lab emits, not to any checkout.</p>
 <h3 id="your-three-minutes">Your three minutes</h3>
 <p>Set a timer for three minutes. Using <strong>only</strong> those logs, answer as much as you can:</p>
 <div class="table-wrap"><table><thead><tr><th>#</th><th>Question</th><th>Your answer</th><th>Confidence</th></tr></thead><tbody><tr><td>1</td><td>How many payment validations were rejected?</td><td></td><td></td></tr><tr><td>2</td><td>Which currency and discount segment was affected?</td><td></td><td></td></tr><tr><td>3</td><td>Which checkout request produced one specific rejection?</td><td></td><td></td></tr></tbody></table></div>
@@ -861,10 +858,7 @@ PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlat
 <p>Now scale it. 840 lines per 100 checkouts is <strong>8.4 lines per checkout</strong>. A service doing 1,000 checkouts per minute emits <strong>about 12 million lines a day</strong>. The three minutes you just spent do not get shorter; the haystack gets bigger.</p>
 <div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>Host metrics look normal and every request is HTTP 200. Is checkout necessarily healthy?</p></aside><details class="reveal reveal-answer"><summary>Check the idea</summary><div class="reveal-body"><p>No. HTTP status shows that the API handled the request. It does not establish that the checkout business process fulfilled its responsibility.</p></div></details></div>
 <div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>Suppose you could add one thing to these logs and nothing else. What single field would have rescued your three minutes?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>The checkout outcome, as a field rather than as prose. With <code>outcome</code> attached to a line per checkout, question 1 becomes a count and question 2 becomes a group-by — but only if the currency and discount travel with it.</p>
-<p>Hold on to that instinct, because it is exactly the right one and it is still not enough. A field on a log line answers &quot;how many&quot; only after you have queried and counted every matching line. In section 2 you will attach the same three facts to a <strong>counter</strong> instead, and the backend does the counting continuously, for a fixed storage cost, whether the service does 100 checkouts an hour or 100,000. The signal you choose is as much a design decision as the field you add.</p></div></details></div>
-<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
-<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
-<hr class="rule"><ul class="state-grid"><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Detect</span><span class="pill-reason">Logs show activity, not correctness</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Scope</span><span class="pill-reason">No business fields to group by</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">No link between a checkout and a payment decision</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">Prose records that something failed, not why</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<p>Hold on to that instinct, because it is exactly the right one and it is still not enough. A field on a log line answers &quot;how many&quot; only after you have queried and counted every matching line. In section 2 you will attach the same three facts to a <strong>counter</strong> instead, and the backend does the counting continuously, for a fixed storage cost, whether the service does 100 checkouts an hour or 100,000. The signal you choose is as much a design decision as the field you add.</p></div></details></div><h3 id="where-the-investigation-stands">Where the investigation stands</h3><ul class="state-grid"><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Detect</span><span class="pill-reason">Logs show activity, not correctness</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Scope</span><span class="pill-reason">No business fields to group by</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">No link between a checkout and a payment decision</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">Prose records that something failed, not why</span><span class="visually-hidden">: not answered</span></li></ul><hr class="rule"></section>
 <section class="step" id="2-how-bad-is-it-and-who-is-affected" data-step="2-how-bad-is-it-and-who-is-affected" data-detect="yes" data-scope="yes" data-isolate="no" data-explain="no"><header class="step-head"><span class="step-badge">2</span><span class="step-time">09:31</span><h2 id="2-how-bad-is-it-and-who-is-affected-title">How bad is it, and who is affected?</h2></header><p>Someone opens an incident bridge and asks the two questions every incident opens with: <em>how bad is it, and who is hit?</em> &quot;I can&#x27;t tell yet&quot; is an honest answer and a useless one — and it is the answer you will still be giving in an hour unless something changes right now.</p>
 <p>So you stop investigating for two minutes and make the service capable of answering: <strong>is checkout succeeding, and which bounded segment is failing?</strong></p>
 <aside class="callout callout-move"><p class="callout-label">Your move</p><p>one paste into <code>services/checkout/app/checkout.py</code>, save, then two traffic runs.</p></aside>
@@ -933,7 +927,7 @@ PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlat
 <div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic healthy
 ./lab traffic incident">Copy</button></div><pre><code><span class="cmd">./lab traffic healthy</span>
 <span class="cmd">./lab traffic incident</span></code></pre></div>
-<p>Each run takes about 45 seconds. Within a few seconds of the first one, panels that were empty all morning start drawing: your one <code>.add()</code> call is the only reason there is anything to draw.</p>
+<p>Each run takes about 45 seconds: one warm-up checkout, a quiet twenty seconds, then the burst. So give it half a minute before panels that were empty all morning start drawing — and when they do, your one <code>.add()</code> call is the only reason there is anything to draw.</p>
 <p><strong>Read the next two parts while the runs finish</strong>, then come back to the dashboard.</p>
 <details class="reveal reveal-note"><summary>Nothing appears at all after a minute</summary><div class="reveal-body"><p>The paste probably stopped the service reloading. Look for the syntax error, and restore known-good code if you need it:</p>
 <div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab logs checkout
@@ -945,7 +939,10 @@ PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlat
 <p>Dotted lowercase names are OpenTelemetry convention, so yours read like the attributes auto-instrumentation already emits.</p>
 <h3 id="the-one-thing-to-get-right-keep-the-attributes-countable">The one thing to get right: keep the attributes countable</h3>
 <p>A counter does not store your checkouts. It stores <strong>one running total per unique combination of attribute values</strong>. Each of those totals is called a <em>time series</em> — one line that only ever ticks upward.</p>
-<figure class="diagram">
+<p>Your three attributes can only combine so many ways, so after a 100-checkout incident run the entire metric is three lines:</p>
+<div class="table-wrap"><table><thead><tr><th>What the backend keeps</th><th>Running total</th></tr></thead><tbody><tr><td><code>outcome=success, currency=CAD, discounted=false</code></td><td>50</td></tr><tr><td><code>outcome=success, currency=USD, discounted=true</code></td><td>25</td></tr><tr><td><code>outcome=payment_rejected, currency=CAD, discounted=true</code></td><td>25</td></tr></tbody></table></div>
+<p>Run a million checkouts tomorrow and it is still those lines, with bigger numbers on them. The ceiling comes from the vocabulary, not the traffic: 3 outcomes × 2 currencies × 2 discount states is <strong>12 lines at most, forever</strong>. Time series are the unit a metrics backend stores, searches and bills you for, so that ceiling is the whole design. The number of series your attributes can produce is called their <em>cardinality</em>, and keeping it small and knowable is the job.</p>
+<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p><code>order_id</code> is right there in the request, and a metric that could name the failing orders sounds far more useful. Why is it not in the attribute dictionary?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><figure class="diagram">
   <div class="diagram-scroll">
     <svg viewBox="0 0 740 320" role="img" aria-labelledby="fig-card-title fig-card-desc">
       <title id="fig-card-title">What a counter stores, with and without order_id</title>
@@ -1034,10 +1031,7 @@ PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlat
   </div>
   <figcaption><strong>A counter stores one row per unique combination of attribute values</strong> — each row a running total that only ticks upward. Bounded attributes keep that list short forever. <code>order_id</code> never repeats, so every checkout invents a row of its own that will read <code>1</code> for the rest of its life.</figcaption>
 </figure>
-<p>Your three attributes can only combine so many ways, so after a 100-checkout incident run the entire metric is three lines:</p>
-<div class="table-wrap"><table><thead><tr><th>What the backend keeps</th><th>Running total</th></tr></thead><tbody><tr><td><code>outcome=success, currency=CAD, discounted=false</code></td><td>50</td></tr><tr><td><code>outcome=success, currency=USD, discounted=true</code></td><td>25</td></tr><tr><td><code>outcome=payment_rejected, currency=CAD, discounted=true</code></td><td>25</td></tr></tbody></table></div>
-<p>Run a million checkouts tomorrow and it is still those lines, with bigger numbers on them. The ceiling comes from the vocabulary, not the traffic: 3 outcomes × 2 currencies × 2 discount states is <strong>12 lines at most, forever</strong>. Time series are the unit a metrics backend stores, searches and bills you for, so that ceiling is the whole design. The number of series your attributes can produce is called their <em>cardinality</em>, and keeping it small and knowable is the job.</p>
-<div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p><code>order_id</code> is right there in the request, and a metric that could name the failing orders sounds far more useful. Why is it not in the attribute dictionary?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>Because order IDs never repeat, so every single checkout invents a line of its own:</p>
+<p>Because order IDs never repeat, so every single checkout invents a line of its own:</p>
 <div class="table-wrap"><table><thead><tr><th>What the backend keeps</th><th>Running total</th></tr></thead><tbody><tr><td><code>outcome=payment_rejected, currency=CAD, discounted=true, order_id=ord-e6d778add6</code></td><td>1</td></tr><tr><td><code>outcome=payment_rejected, currency=CAD, discounted=true, order_id=ord-5c21f308dc</code></td><td>1</td></tr><tr><td>…98 more, one per checkout</td><td>1</td></tr></tbody></table></div>
 <p>100 checkouts, 100 lines, each stuck at 1 and each kept forever. At 1,000 checkouts a minute that is <strong>1.4 million new lines a day</strong>, sitting in the backend&#x27;s memory and index. You have not built a metric; you have built an expensive log that cannot be graphed.</p>
 <p>Nothing errors when you do this. It works on your laptop, it passes review, and it arrives weeks later as backend cost, slow queries or an out-of-memory metrics server that nobody traces back to one line of application code. It is the most common way teams break a metrics pipeline.</p>
@@ -1045,7 +1039,7 @@ PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlat
 <p>The detail is not lost, it just belongs elsewhere. Traces and structured events store one record per request instead of one total per combination, which is exactly what you build in sections 3 and 4. Each signal gets the cardinality it can afford.</p></div></details></div>
 <h3 id="read-the-dashboard">Read the dashboard</h3>
 <p>Both runs should be finished. <strong>Business outcome over time</strong> draws the healthy run as one green line and the incident run as a second red one underneath it, and four stat tiles sit across the top. Two of those tiles disagree with each other, which is exactly the disagreement you came here to find:</p>
-<ul class="list"><li><strong>HTTP 200 responses: 100%.</strong> Transport never noticed.</li><li><strong>Checkout CPU and memory:</strong> normal.</li><li><strong>Peak business failures: 24–27%.</strong> This panel reports the worst 15-second window, so it lands near but not exactly on the true rate depending on where the window falls.</li><li><strong>Checkout outcomes by segment:</strong> one failing row — <code>CAD discounted=true → payment_rejected</code>, at 25 — beside two clean ones.</li></ul>
+<ul class="list"><li><strong>HTTP 200 responses: 100%.</strong> Transport never noticed.</li><li><strong>Checkout CPU and memory:</strong> normal.</li><li><strong>Peak business failures: 22–27%.</strong> This panel reports the worst 15-second window of real traffic, so it lands near but not exactly on the true rate depending on where the window falls.</li><li><strong>Checkout outcomes by segment:</strong> one failing row — <code>CAD discounted=true → payment_rejected</code>, at 25 — beside two clean ones.</li></ul>
 <details class="reveal reveal-note"><summary>Why the segment numbers land where they do</summary><div class="reveal-body"><p>The panel counts whole checkouts across both runs. The healthy run sends 50 standard CAD and 50 discounted USD; the incident run sends 50 standard CAD, 25 discounted USD and 25 discounted CAD. So roughly 100 standard CAD and 75 discounted USD succeed, and the 25 discounted CAD checkouts — a segment that only appears in the incident run — are the entire failure.</p></div></details>
 <details class="reveal reveal-spoiler"><summary>Show the finished dashboard — it contains the answer to your section 1 table</summary><div class="reveal-body"><figure class="shot"><button class="shot-zoom" type="button" aria-label="Enlarge screenshot"><img src="images/02-checkout-dashboard.png" alt="Dashboard showing 100% HTTP 200 beside a 24% business failure rate, and 25 rejected discounted CAD checkouts" loading="lazy"></button><figcaption>Dashboard showing 100% HTTP 200 beside a 24% business failure rate, and 25 rejected discounted CAD checkouts</figcaption></figure>
 <p>Transport is perfect and the business is not, on the same screen, for the same requests. The segment panel underneath names the affected group outright.</p></div></details>
@@ -1060,57 +1054,14 @@ PASS Grafana: dashboard, datasources, Explore access, and bidirectional correlat
 <ol class="list"><li><strong>Detect:</strong> Checkout is unhealthy because <span class="blank"></span>.</li><li><strong>Scope:</strong> The affected segment is <span class="blank"></span>.</li><li>The metric does not yet prove <span class="blank"></span>.</li></ol>
 <details class="reveal reveal-answer"><summary>Check your evidence</summary><div class="reveal-body"><ol class="list"><li>About a quarter of checkouts return a failed business outcome, even though every HTTP response is 200.</li><li>Rejections are concentrated in discounted CAD checkouts. Standard CAD and discounted USD ran in the same window and every one of them succeeded.</li><li>The metric does not show which operation rejected one request or why its amount was rejected.</li></ol></div></details>
 <div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the dashboard says 25 discounted CAD checkouts were rejected. Could you use this metric to pull up one of those 25 rejected checkouts?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>No, and this is the boundary of what metrics are for. A counter is an aggregate: it tells you that 25 checkouts in this segment failed, and nothing whatsoever about which 25. There is no request inside a counter to open.</p>
-<p>That limit is structural, not a gap in this particular metric — it is the reason the next signal exists. Traces keep per-request detail, so you can follow one checkout through Inventory and Payment and see where it turned.</p></div></details></div>
-<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
-<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
-<aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>do not continue until the dashboard or <code>./lab check metrics</code> confirms the new evidence.</p></aside>
-<hr class="rule"><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only; other segments are clean</span><span class="visually-hidden">: answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">The metric counts outcomes, it does not follow a request</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">No amounts, no reason</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<p>That limit is structural, not a gap in this particular metric — it is the reason the next signal exists. Traces keep per-request detail, so you can follow one checkout through Inventory and Payment and see where it turned.</p></div></details></div><h3 id="where-the-investigation-stands">Where the investigation stands</h3><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only; other segments are clean</span><span class="visually-hidden">: answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Isolate</span><span class="pill-reason">The metric counts outcomes, it does not follow a request</span><span class="visually-hidden">: not answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">No amounts, no reason</span><span class="visually-hidden">: not answered</span></li></ul><aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>do not continue until the dashboard or <code>./lab check metrics</code> confirms the new evidence.</p></aside>
+<hr class="rule"></section>
 <section class="step" id="3-where-did-it-break" data-step="3-where-did-it-break" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="no"><header class="step-head"><span class="step-badge">3</span><span class="step-time">09:48</span><h2 id="3-where-did-it-break-title">Where did it break?</h2></header><p>You post the segment breakdown. The bridge now knows a quarter of discounted CAD checkouts are being rejected, and the next message is the obvious one: <em>whose service?</em></p>
 <p>Checkout calls Inventory and Payment. Both are green, both returned 200, and the counter you just added cannot break the tie — there is no request inside a counter to open. Inventory&#x27;s on-call has joined the bridge and wants to know whether they can stand down.</p>
 <p><strong>Which operation rejected an affected checkout?</strong></p>
 <aside class="callout callout-move"><p class="callout-label">Your move</p><p>replace one block in <code>services/payment/app/validation.py</code>, save, then one traffic run.</p></aside>
 <h3 id="what-the-sdk-already-gives-you">What the SDK already gives you</h3>
 <p>A <strong>trace</strong> is one request&#x27;s story across every service it touched. A <strong>span</strong> is one step in that story: a timed operation with a name, some attributes, and a status of OK or error. Spans nest inside each other, which is why a trace reads as a waterfall.</p>
-<figure class="diagram">
-  <div class="diagram-scroll">
-    <svg viewBox="0 0 740 236" role="img" aria-labelledby="fig-wf-title fig-wf-desc">
-      <title id="fig-wf-title">One trace as a waterfall of nested spans</title>
-      <desc id="fig-wf-desc">The root span is checkout POST /checkout and it succeeded with HTTP 200. Nested under it, inventory POST /reserve completes early with no error, and payment POST /authorize contains a child span named payment.amount_validation which is marked ERROR. Time runs left to right and depth of nesting runs top to bottom.</desc>
-
-      <text class="d-title" x="8" y="16">one request · one trace · fifteen spans</text>
-
-      <!-- root -->
-      <text class="d-mono" x="8" y="50">checkout POST /checkout</text>
-      <rect class="d-ok-soft" x="176" y="38" width="536" height="18" rx="4" stroke-width="1.2"/>
-      <circle class="d-ok" cx="188" cy="47" r="3.4"/>
-      <text class="d-mono-soft" x="200" y="51">root · HTTP 200 · OK</text>
-
-      <!-- inventory -->
-      <text class="d-mono" x="20" y="88">inventory POST /reserve</text>
-      <rect class="d-ok-soft" x="196" y="76" width="46" height="18" rx="4" stroke-width="1.2"/>
-      <circle class="d-ok" cx="207" cy="85" r="3.4"/>
-      <text class="d-mono-soft" x="250" y="89">721µs · no error · ruled out</text>
-
-      <!-- payment -->
-      <text class="d-mono" x="20" y="126">payment POST /authorize</text>
-      <rect class="d-ok-soft" x="262" y="114" width="428" height="18" rx="4" stroke-width="1.2"/>
-      <circle class="d-ok" cx="273" cy="123" r="3.4"/>
-      <text class="d-mono-soft" x="286" y="127">HTTP 200 · OK</text>
-
-      <!-- validation -->
-      <text class="d-mono" x="32" y="164">payment.amount_validation</text>
-      <rect class="d-bad-soft" x="292" y="152" width="150" height="18" rx="4" stroke-width="1.4"/>
-      <path class="d-bad" d="M300 148 l7 7 -7 7 -7 -7z"/>
-      <text class="d-mono d-bad" x="452" y="168">ERROR</text><text class="d-mono-soft" x="496" y="168">· the span you added</text>
-
-      <line class="d-line" stroke-width="1" x1="176" y1="196" x2="712" y2="196"/>
-      <path class="d-line" stroke-width="1" d="M706 192 l6 4 -6 4"/>
-      <text class="d-label" x="176" y="212">time →</text>
-      <text class="d-label" x="8" y="212">nesting ↓</text>
-    </svg>
-  </div>
-  <figcaption><strong>Depth is nesting, width is duration.</strong> Checkout's HTTP request genuinely succeeded, so the root stays green; the red sits on the one span where your code made a judgement and recorded it.</figcaption>
-</figure>
 <p>Automatic instrumentation is already recording spans for the HTTP calls between Checkout, Inventory and Payment, so a trace of the whole request exists right now. What it cannot know is which <em>business decision</em> inside Payment mattered — it sees an HTTP handler, not an amount validation. Naming that decision is your job, and it takes one <code>with</code> block.</p>
 <p>Open <code>services/payment/app/validation.py</code>. The imports you need are already at the top:</p>
 <div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="from opentelemetry.trace import Status, StatusCode
@@ -1157,7 +1108,16 @@ from shared.telemetry import tracer</code></pre></div>
 
     # LAB 2: replace validation evidence block
     with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
-        ...
+        span.set_attribute(&quot;payment.currency&quot;, currency)
+        span.set_attribute(&quot;payment.discounted&quot;, discounted)
+        span.set_attribute(&quot;validation.result&quot;, &quot;accepted&quot; if accepted else &quot;rejected&quot;)
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, &quot;amount validation rejected&quot;))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            _log_weak_rejection()
+
         return accepted">Copy</button></div><pre><code>def validate_amount(
     unrounded_total: str,
     received_minor_units: int,
@@ -1169,8 +1129,18 @@ from shared.telemetry import tracer</code></pre></div>
 
     # LAB 2: replace validation evidence block
     with tracer.start_as_current_span(&quot;payment.amount_validation&quot;) as span:
-        ...
+        span.set_attribute(&quot;payment.currency&quot;, currency)
+        span.set_attribute(&quot;payment.discounted&quot;, discounted)
+        span.set_attribute(&quot;validation.result&quot;, &quot;accepted&quot; if accepted else &quot;rejected&quot;)
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, &quot;amount validation rejected&quot;))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            _log_weak_rejection()
+
         return accepted</code></pre></div>
+<p>Everything from <code>with</code> downwards is one block: the four <code>span</code> lines and the <code>if</code> sit at eight spaces, and <code>return accepted</code> is the last line inside it.</p>
 <p>The old two-line <code>if not accepted: _log_weak_rejection()</code> / <code>return accepted</code> block should no longer exist at four-space indentation — it now lives inside the <code>with</code> block.</p></div></details>
 <h3 id="start-the-traffic-then-keep-reading">Start the traffic, then keep reading</h3>
 <p>Spans only exist for requests that actually happen, so send another hundred:</p>
@@ -1234,7 +1204,47 @@ from shared.telemetry import tracer</code></pre></div>
 <p>The real one is separation of duty between signals. A trace answers <strong>where</strong> — which operation, in which service, in what order, taking how long. An event answers <strong>why</strong> — the specific values and the condition. Spans are emitted for every request whether it succeeds or not, so every attribute you attach is paid for on all of them; a rejection payload belongs on the rejection, not on all 100 spans. Keeping the boundary sharp also keeps the trace readable at a glance.</p>
 <p>The pedagogical one: if the span carried the amounts, section 4 would have nothing left to teach you, and you would never feel the difference between &quot;I can name the failing operation&quot; and &quot;I can explain the failure.&quot;</p></div></details></div>
 <div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the trace you are about to open contains the HTTP 200 that Checkout returned for this request. Will the root span be green or red?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open — the screenshot below gives it away</summary><div class="reveal-body"><p>Green. The root span is the HTTP request, and the HTTP request genuinely succeeded — Checkout handled it, returned 200, and nothing threw.</p>
-<p>The red is on the child span, because that is where your code made a judgement and recorded it. This is the same &quot;every request returns 200&quot; problem you started with, except the waterfall now shows both truths at once: transport succeeded, the business decision did not. A green root with a red child is a completely normal, correct picture of a business failure.</p></div></details></div>
+<p>The red is on the child span, because that is where your code made a judgement and recorded it. This is the same &quot;every request returns 200&quot; problem you started with, except the waterfall now shows both truths at once: transport succeeded, the business decision did not. A green root with a red child is a completely normal, correct picture of a business failure.</p>
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 236" role="img" aria-labelledby="fig-wf-title fig-wf-desc">
+      <title id="fig-wf-title">One trace as a waterfall of nested spans</title>
+      <desc id="fig-wf-desc">The root span is checkout POST /checkout and it succeeded with HTTP 200. Nested under it, inventory POST /reserve completes early with no error, and payment POST /authorize contains a child span named payment.amount_validation which is marked ERROR. Time runs left to right and depth of nesting runs top to bottom.</desc>
+
+      <text class="d-title" x="8" y="16">one request · one trace · fifteen spans</text>
+
+      <!-- root -->
+      <text class="d-mono" x="8" y="50">checkout POST /checkout</text>
+      <rect class="d-ok-soft" x="176" y="38" width="536" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="188" cy="47" r="3.4"/>
+      <text class="d-mono-soft" x="200" y="51">root · HTTP 200 · OK</text>
+
+      <!-- inventory -->
+      <text class="d-mono" x="20" y="88">inventory POST /reserve</text>
+      <rect class="d-ok-soft" x="196" y="76" width="46" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="207" cy="85" r="3.4"/>
+      <text class="d-mono-soft" x="250" y="89">721µs · no error · ruled out</text>
+
+      <!-- payment -->
+      <text class="d-mono" x="20" y="126">payment POST /authorize</text>
+      <rect class="d-ok-soft" x="262" y="114" width="428" height="18" rx="4" stroke-width="1.2"/>
+      <circle class="d-ok" cx="273" cy="123" r="3.4"/>
+      <text class="d-mono-soft" x="286" y="127">HTTP 200 · OK</text>
+
+      <!-- validation -->
+      <text class="d-mono" x="32" y="164">payment.amount_validation</text>
+      <rect class="d-bad-soft" x="292" y="152" width="150" height="18" rx="4" stroke-width="1.4"/>
+      <path class="d-bad" d="M300 148 l7 7 -7 7 -7 -7z"/>
+      <text class="d-mono d-bad" x="452" y="168">ERROR</text><text class="d-mono-soft" x="496" y="168">· the span you added</text>
+
+      <line class="d-line" stroke-width="1" x1="176" y1="196" x2="712" y2="196"/>
+      <path class="d-line" stroke-width="1" d="M706 192 l6 4 -6 4"/>
+      <text class="d-label" x="176" y="212">time →</text>
+      <text class="d-label" x="8" y="212">nesting ↓</text>
+    </svg>
+  </div>
+  <figcaption><strong>Depth is nesting, width is duration.</strong> Checkout's HTTP request genuinely succeeded, so the root stays green; the red sits on the one span where your code made a judgement and recorded it.</figcaption>
+</figure></div></details></div>
 <h3 id="read-the-trace">Read the trace</h3>
 <p>Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Failed payment-validation traces</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22payment%5C%22%20%26%26%20name%20%3D%20%5C%22payment.amount_validation%5C%22%20%26%26%20status%20%3D%20error%20%7D%22%2C%22queryType%22%3A%22traceql%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a> and <strong>click any Trace ID</strong> from the run you just made. You are looking at one request&#x27;s whole life: roughly fifteen spans, three services nested inside each other in the order the request travelled.</p>
 <p>Look for:</p>
@@ -1244,14 +1254,11 @@ from shared.telemetry import tracer</code></pre></div>
 <p>If the evidence does not appear:</p>
 <div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab recover traces">Copy</button></div><pre><code><span class="cmd">./lab recover traces</span></code></pre></div>
 <h3 id="back-to-question-3">Back to question 3</h3>
-<p>&quot;Which checkout request produced one specific rejection?&quot; — the trace ID at the top of that waterfall is the answer, and section 1 had nothing that could produce it. Payment&#x27;s prose and Checkout&#x27;s prose were unrelated text in one shared stream. One propagated trace context later, a single request carries one identifier across all three services, and you can hand that ID to somebody else knowing they will look at exactly the request you looked at.</p>
+<p>&quot;Which checkout request produced one specific rejection?&quot; — the trace ID at the top of that waterfall is the answer. Look closely at where you started, though: every one of those 838 prose lines already carried a <code>trace_id</code>, put there by the same auto-instrumentation, and it bought you nothing. Requests were traceable in section 1. What was missing was any reason to open one trace rather than another, and any span that named the decision once you did. That is what changed — not that a request can be followed, but that one span now says which request went wrong and where. It is the difference between an identifier and an identifier worth handing to somebody else.</p>
 <h3 id="what-you-can-now-hand-to-payments">What you can now hand to Payments</h3>
 <ol class="list"><li>Inventory <span class="blank"></span>.</li><li>The request was rejected during <span class="blank"></span>.</li><li>The trace still does not explain <span class="blank"></span>.</li></ol>
-<details class="reveal reveal-answer"><summary>Check your evidence</summary><div class="reveal-body"><ol class="list"><li>Inventory completed successfully for the selected request, in well under a millisecond.</li><li>The request was rejected during Payment amount validation.</li><li>The trace does not explain the expected value, received value, or why those values differed.</li></ol></div></details>
-<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
-<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
-<aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>you should be able to name the failing operation without yet naming the cause.</p></aside>
-<hr class="rule"><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Isolate</span><span class="pill-reason">Payment amount validation, with Inventory ruled out</span><span class="visually-hidden">: answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">You can name the operation, not the condition</span><span class="visually-hidden">: not answered</span></li></ul></section>
+<details class="reveal reveal-answer"><summary>Check your evidence</summary><div class="reveal-body"><ol class="list"><li>Inventory completed successfully for the selected request, in well under a millisecond.</li><li>The request was rejected during Payment amount validation.</li><li>The trace does not explain the expected value, received value, or why those values differed.</li></ol></div></details><h3 id="where-the-investigation-stands">Where the investigation stands</h3><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Isolate</span><span class="pill-reason">Payment amount validation, with Inventory ruled out</span><span class="visually-hidden">: answered</span></li><li class="pill pill-no"><span class="pill-glyph" aria-hidden="true">❌</span><span class="pill-name">Explain</span><span class="pill-reason">You can name the operation, not the condition</span><span class="visually-hidden">: not answered</span></li></ul><aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>you should be able to name the failing operation without yet naming the cause.</p></aside>
+<hr class="rule"></section>
 <section class="step" id="4-why-did-it-break" data-step="4-why-did-it-break" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="yes"><header class="step-head"><span class="step-badge">4</span><span class="step-time">10:03</span><h2 id="4-why-did-it-break-title">Why did it break?</h2></header><p>You can name the operation, so you page the Payments on-call. This is the moment most incidents go sideways: the entire content of your page is &quot;amount validation rejects discounted CAD.&quot; The first reply comes back in under a minute — <em>what were the amounts?</em> — and the only answer anywhere in the system is <code>validate_amount -&gt; False</code>.</p>
 <p>Two teams are now awake, and neither of you can say what the service actually compared.</p>
 <p><strong>What application condition caused Payment to reject the amount?</strong></p>
@@ -1269,56 +1276,6 @@ from shared.telemetry import tracer</code></pre></div>
 )</code></pre></div>
 <p>Three phrasings, at <code>INFO</code>, with no fields. This is what &quot;we already log that&quot; usually means.</p>
 <p>You are not adding logging here; you are replacing prose with a <strong>structured event</strong> — a log line whose facts live in named fields instead of inside an English sentence, so they can be filtered, grouped and counted without anyone parsing text.</p>
-<figure class="diagram">
-  <div class="diagram-scroll">
-    <svg viewBox="0 0 740 268" role="img" aria-labelledby="fig-event-title fig-event-desc">
-      <title id="fig-event-title">The same rejection as prose and as a structured event</title>
-      <desc id="fig-event-desc">On the left, the rejection is one INFO line reading validate_amount arrow False: a single opaque string with nothing to filter on. On the right, the same rejection is a WARN event carrying named fields — event_name, reason_code, expected and received minor units, and both rounding modes — with trace and span IDs attached automatically by the SDK.</desc>
-
-      <text class="d-title" x="8" y="16">before · a sentence</text>
-      <rect class="d-surface" x="8" y="28" width="330" height="60" rx="8" stroke-width="1"/>
-      <text class="d-mono-soft" x="22" y="52">INFO</text>
-      <text class="d-mono" x="62" y="52">validate_amount -&gt; False</text>
-      <text class="d-mono-soft" x="22" y="72">…among 838 other INFO lines</text>
-
-      <text class="d-label" x="8" y="112">Nothing to filter on:</text>
-      <text class="d-label" x="8" y="130">no outcome, no currency, no amounts,</text>
-      <text class="d-label" x="8" y="148">no link to the request it belongs to.</text>
-      <text class="d-label" x="8" y="176">Three different phrasings of this one</text>
-      <text class="d-label" x="8" y="194">decision drifted apart as the code was</text>
-      <text class="d-label" x="8" y="212">maintained, so a text search finds a third</text>
-      <text class="d-label" x="8" y="230">of the truth.</text>
-
-      <path class="d-hair" stroke-width="1" d="M370 8 V254"/>
-
-      <text class="d-title" x="402" y="16">after · fields</text>
-      <rect class="d-warn-soft" x="402" y="28" width="330" height="196" rx="8" stroke-width="1.2"/>
-      <text class="d-mono" x="416" y="50">WARN</text>
-      <text class="d-mono-soft" x="458" y="50">Payment amount validation rejected</text>
-      <line class="d-hair" stroke-width="1" x1="416" y1="60" x2="718" y2="60"/>
-
-      <text class="d-mono-soft" x="416" y="80">event_name</text>
-      <text class="d-mono" x="566" y="80">payment.amount_…rejected</text>
-      <text class="d-mono-soft" x="416" y="100">reason_code</text>
-      <text class="d-mono" x="566" y="100">minor_unit_mismatch</text>
-      <text class="d-mono-soft" x="416" y="120">expected_minor_units</text>
-      <text class="d-mono" x="566" y="120">1000</text>
-      <text class="d-mono-soft" x="416" y="140">received_minor_units</text>
-      <text class="d-mono" x="566" y="140">1001</text>
-      <text class="d-mono-soft" x="416" y="160">checkout_rounding_mode</text>
-      <text class="d-mono" x="566" y="160">HALF_UP</text>
-      <text class="d-mono-soft" x="416" y="180">payment_rounding_mode</text>
-      <text class="d-mono" x="566" y="180">HALF_EVEN</text>
-
-      <line class="d-hair" stroke-width="1" x1="416" y1="192" x2="718" y2="192"/>
-      <text class="d-mono-soft" x="416" y="212">trace_id · span_id</text>
-      <text class="d-mono" x="566" y="212">attached by the SDK</text>
-
-      <text class="d-label" x="402" y="246">Every line above is a field you can filter, group and count.</text>
-    </svg>
-  </div>
-  <figcaption><strong>Same rejection, twice.</strong> One version has to be read; the other can be queried — and because it is emitted inside the validation span, it points back at the exact operation that produced it.</figcaption>
-</figure>
 <h3 id="say-what-the-service-compared">Say what the service compared</h3>
 <p>In <code>services/payment/app/validation.py</code>, find:</p>
 <div class="code card"><div class="card-bar"><span class="card-label">python</span><button class="copy" type="button" hidden data-copy="# LAB 3: record amount validation rejection">Copy</button></div><pre><code># LAB 3: record amount validation rejection</code></pre></div>
@@ -1413,7 +1370,7 @@ from shared.telemetry import tracer</code></pre></div>
 <h3 id="what-that-block-does">What that block does</h3>
 <ul class="list"><li><strong><code>extra={...}</code></strong> turns each key into a real field on the record. The OpenTelemetry handler in <code>services/shared/telemetry.py</code> forwards them and Loki stores them as structured metadata — fields you filter and group by, not text you parse out of a message.</li><li><strong><code>event_name</code></strong> is a stable identifier for <em>this decision</em>, independent of wording. You watched three phrasings of one rejection drift apart in section 1; dashboards and alerts key on this instead, so the message text stays free to change.</li><li><strong><code>reason_code</code></strong> is a bounded, machine-readable <em>why</em>. It is the difference between &quot;rejections are up&quot; and &quot;rounding mismatches are up.&quot;</li><li><strong><code>expected_minor_units</code> / <code>received_minor_units</code></strong> are integers in the currency&#x27;s smallest unit — cents here, so <code>1000</code> is CAD 10.00. Integers are exact and comparable; <code>&quot;$10.00&quot;</code> and <code>&quot;10,01&quot;</code> are neither.</li><li><strong><code>checkout_rounding_mode</code> / <code>payment_rounding_mode</code></strong> turn a symptom into a cause: not just that the amounts differed, but that the two services rounded differently.</li><li><strong><code>logger.warning</code></strong> is a routing decision, not decoration — see the next block.</li><li><strong>Sitting inside the <code>with</code></strong> means the span from section 3 is still active, so OpenTelemetry stamps this record with its trace and span IDs. That is your link from event to trace and back, with no correlation ID passed by hand.</li></ul>
 <div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the fields you need for correlation — trace ID and span ID — are nowhere in that <code>extra</code> dictionary. So how does Grafana get from this log line to the trace?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>The SDK adds them. A log record emitted while a span is active picks up that span&#x27;s trace and span IDs from the active context automatically, which is the whole reason this <code>logger.warning</code> sits inside the <code>with</code> block rather than after it.</p>
-<p>Move the same call below the <code>with</code> block and it would not lose the trace outright — the HTTP server span for <code>POST /authorize</code> is still active out there, so the record would attach to <em>that</em> instead. You would keep the trace ID and lose the precision: the event would no longer point at the validation operation, and <strong>Logs for this span</strong> on the red span would come back empty. Placement is instrumentation.</p></div></details></div>
+<p>Move the same call below the <code>with</code> block and it would not lose the trace outright — the HTTP server span for <code>POST /authorize</code> is still active out there, so the record would attach to <em>that</em> instead. You would keep the trace ID and lose the precision: the event&#x27;s <code>span_id</code> would point at the HTTP handler rather than at the validation that rejected the amount. This lab&#x27;s Grafana correlates on trace ID alone, so <strong>Logs for this span</strong> would still return the event — along with every other line in the request. But anything asking <em>which operation</em> recorded it would now get the wrong answer, and on a busier request that is the difference between evidence and noise. Placement is instrumentation.</p></div></details></div>
 <h3 id="choosing-the-severity-and-what-never-goes-in">Choosing the severity, and what never goes in</h3>
 <div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>the rejection is a failure. Should this be <code>ERROR</code>?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>No — <code>WARN</code> is correct. Severity is about <strong>who needs to act</strong>, not about how bad the word sounds. Payment did its job perfectly: it validated an amount, found a mismatch, and declined. Nothing in Payment is broken, so paging the Payment on-call at 3am would be wrong.</p>
 <p>But it is not routine either — something upstream is behaving abnormally and it is costing checkouts. That is precisely what <code>WARN</code> means: notable, actionable in daylight, not an outage.</p>
@@ -1421,11 +1378,61 @@ from shared.telemetry import tracer</code></pre></div>
 <div class="prediction"><aside class="callout callout-prediction"><p class="callout-label">Prediction</p><p>which fields did we deliberately <em>not</em> put in this event?</p></aside><details class="reveal reveal-answer"><summary>Predict first, then open</summary><div class="reveal-body"><p>Card numbers, payment tokens, customer details, order IDs, and the raw request payload. None of it is here.</p>
 <p>Structured logging makes accidental exfiltration easy: <code>extra={**request.dict()}</code> is one keystroke away and would ship whatever the request happened to contain, forever, to a log store with a different access model than your database. Choose fields deliberately, one at a time, and prefer the narrowest value that answers the question — the two integers above explain this incident completely without a single piece of customer data.</p></div></details></div>
 <h3 id="read-the-events">Read the events</h3>
-<p>Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Structured payment-validation events</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a>. You should see 25 rows at <code>WARN</code> — not <code>INFO</code> — and a Fields sidebar listing every business field at 100%, meaning the field is on every single event rather than on a lucky subset.</p>
+<p>Open <a class="view-link" href="http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D" target="_blank" rel="noopener"><span class="view-name">Structured payment-validation events</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/explore?orgId=1&amp;left=%7B%22datasource%22%3A%22lab-loki%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bservice_name%3D%5C%22payment%5C%22%7D%20%7C%20event_name%20%3D%20%5C%22payment.amount_validation_rejected%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22editorMode%22%3A%22code%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D</span></a>. You should see 25 rows at <code>WARN</code> — not <code>INFO</code> — one per rejected checkout in the run you just made, and a Fields sidebar listing every business field at 100%, meaning the field is on every single event rather than on a lucky subset. The view covers the last 15 minutes, so an earlier run&#x27;s rejections can still be in it; count per burst, not in total.</p>
 <p><strong>Expand one row</strong> to see the fields attached to it. OpenTelemetry sends them as Loki structured metadata, so they are attributes on the row rather than text buried in the message.</p>
 <p>Fields should include:</p>
 <ul class="list"><li><code>event_name=payment.amount_validation_rejected</code></li><li><code>reason_code=minor_unit_mismatch</code></li><li><code>expected_minor_units=1000</code></li><li><code>received_minor_units=1001</code></li><li><code>checkout_rounding_mode=HALF_UP</code></li><li><code>payment_rounding_mode=HALF_EVEN</code></li><li>Trace and span context supplied by OpenTelemetry</li></ul>
 <p>Compare that with what the same rejection looked like earlier: <code>validate_amount -&gt; False</code>. Every field in that sidebar is now something you can filter and group by.</p>
+<figure class="diagram">
+  <div class="diagram-scroll">
+    <svg viewBox="0 0 740 268" role="img" aria-labelledby="fig-event-title fig-event-desc">
+      <title id="fig-event-title">The same rejection as prose and as a structured event</title>
+      <desc id="fig-event-desc">On the left, the rejection is one INFO line reading validate_amount arrow False: a single opaque string with nothing to filter on. On the right, the same rejection is a WARN event carrying named fields — event_name, reason_code, expected and received minor units, and both rounding modes — with trace and span IDs attached automatically by the SDK.</desc>
+
+      <text class="d-title" x="8" y="16">before · a sentence</text>
+      <rect class="d-surface" x="8" y="28" width="330" height="60" rx="8" stroke-width="1"/>
+      <text class="d-mono-soft" x="22" y="52">INFO</text>
+      <text class="d-mono" x="62" y="52">validate_amount -&gt; False</text>
+      <text class="d-mono-soft" x="22" y="72">…among 838 other INFO lines</text>
+
+      <text class="d-label" x="8" y="112">Nothing to filter on:</text>
+      <text class="d-label" x="8" y="130">no outcome, no currency, no amounts,</text>
+      <text class="d-label" x="8" y="148">no link to the request it belongs to.</text>
+      <text class="d-label" x="8" y="176">Three different phrasings of this one</text>
+      <text class="d-label" x="8" y="194">decision drifted apart as the code was</text>
+      <text class="d-label" x="8" y="212">maintained, so a text search finds a third</text>
+      <text class="d-label" x="8" y="230">of the truth.</text>
+
+      <path class="d-hair" stroke-width="1" d="M370 8 V254"/>
+
+      <text class="d-title" x="402" y="16">after · fields</text>
+      <rect class="d-warn-soft" x="402" y="28" width="330" height="196" rx="8" stroke-width="1.2"/>
+      <text class="d-mono" x="416" y="50">WARN</text>
+      <text class="d-mono-soft" x="458" y="50">Payment amount validation rejected</text>
+      <line class="d-hair" stroke-width="1" x1="416" y1="60" x2="718" y2="60"/>
+
+      <text class="d-mono-soft" x="416" y="80">event_name</text>
+      <text class="d-mono" x="566" y="80">payment.amount_…rejected</text>
+      <text class="d-mono-soft" x="416" y="100">reason_code</text>
+      <text class="d-mono" x="566" y="100">minor_unit_mismatch</text>
+      <text class="d-mono-soft" x="416" y="120">expected_minor_units</text>
+      <text class="d-mono" x="566" y="120">1000</text>
+      <text class="d-mono-soft" x="416" y="140">received_minor_units</text>
+      <text class="d-mono" x="566" y="140">1001</text>
+      <text class="d-mono-soft" x="416" y="160">checkout_rounding_mode</text>
+      <text class="d-mono" x="566" y="160">HALF_UP</text>
+      <text class="d-mono-soft" x="416" y="180">payment_rounding_mode</text>
+      <text class="d-mono" x="566" y="180">HALF_EVEN</text>
+
+      <line class="d-hair" stroke-width="1" x1="416" y1="192" x2="718" y2="192"/>
+      <text class="d-mono-soft" x="416" y="212">trace_id · span_id</text>
+      <text class="d-mono" x="566" y="212">attached by the SDK</text>
+
+      <text class="d-label" x="402" y="246">Every line above is a field you can filter, group and count.</text>
+    </svg>
+  </div>
+  <figcaption><strong>Same rejection, twice.</strong> One version has to be read; the other can be queried — and because it is emitted inside the validation span, it points back at the exact operation that produced it.</figcaption>
+</figure>
 <details class="reveal reveal-spoiler"><summary>Show the finished Explore view</summary><div class="reveal-body"><figure class="shot"><button class="shot-zoom" type="button" aria-label="Enlarge screenshot"><img src="images/04-structured-events.png" alt="Explore showing WARN events with every business field listed in the Fields sidebar at 100%" loading="lazy"></button><figcaption>Explore showing WARN events with every business field listed in the Fields sidebar at 100%</figcaption></figure>
 <p>Hold this next to the section 1 screenshot of the same service. Same log stream, same incident — one is 838 lines of flat <code>info</code> with nothing to filter on, the other is 25 warnings with a sidebar full of business fields.</p></div></details>
 <p>Open one event&#x27;s <strong>Open trace</strong> link. In the trace, use <strong>Logs for this span</strong> to come back to the correlated event. If either direction is unavailable, use the fresh trace ID printed by the checks and continue; report the correlation-link issue separately from the telemetry result.</p>
@@ -1434,11 +1441,8 @@ from shared.telemetry import tracer</code></pre></div>
 <h3 id="what-you-can-now-put-in-the-incident-timeline">What you can now put in the incident timeline</h3>
 <ol class="list"><li>Payment expected <span class="blank"></span> minor units and received <span class="blank"></span>.</li><li>Checkout used <span class="blank"></span>; Payment used <span class="blank"></span>.</li><li><code>WARN</code> is appropriate because <span class="blank"></span>.</li></ol>
 <details class="reveal reveal-answer"><summary>Check your evidence</summary><div class="reveal-body"><ol class="list"><li>Payment expected 1000 minor units and received 1001.</li><li>Checkout used <code>HALF_UP</code>; Payment used <code>HALF_EVEN</code>.</li><li>Payment handled the validation rejection correctly, but the event signals abnormal upstream behaviour that matters operationally. It is not a Payment service crash. Note that the old prose line was <code>INFO</code>, which is why it never stood out from routine chatter.</li></ol>
-<p>Integer minor units avoid ambiguous formatted currency strings and preserve the exact one-cent difference. Card data, payment tokens, customer details, order IDs, and raw payloads are intentionally absent.</p></div></details>
-<h3 id="where-the-investigation-stands">Where the investigation stands</h3>
-<div class="table-wrap"><table><thead><tr><th>Question</th><th>Can you answer it?</th></tr></thead><tbody></tbody></table></div>
-<aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>you can now explain the mismatch using a structured event correlated to the failed span.</p></aside>
-<hr class="rule"><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Isolate</span><span class="pill-reason">Payment amount validation</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Explain</span><span class="pill-reason">HALF_UP vs HALF_EVEN, 1001 against an expected 1000</span><span class="visually-hidden">: answered</span></li></ul></section>
+<p>Integer minor units avoid ambiguous formatted currency strings and preserve the exact one-cent difference. Card data, payment tokens, customer details, order IDs, and raw payloads are intentionally absent.</p></div></details><h3 id="where-the-investigation-stands">Where the investigation stands</h3><ul class="state-grid"><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Detect</span><span class="pill-reason">~25% of checkouts fail their business outcome</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Scope</span><span class="pill-reason">Discounted CAD only</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Isolate</span><span class="pill-reason">Payment amount validation</span><span class="visually-hidden">: answered</span></li><li class="pill pill-yes"><span class="pill-glyph" aria-hidden="true">✅</span><span class="pill-name">Explain</span><span class="pill-reason">HALF_UP vs HALF_EVEN, 1001 against an expected 1000</span><span class="visually-hidden">: answered</span></li></ul><aside class="callout callout-checkpoint"><p class="callout-label">Before you move on</p><p>you can now explain the mismatch using a structured event correlated to the failed span.</p></aside>
+<hr class="rule"></section>
 <section class="step" id="5-do-it-again-cold" data-step="5-do-it-again-cold" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="yes"><header class="step-head"><span class="step-badge">5</span><span class="step-time">10:20</span><h2 id="5-do-it-again-cold-title">Do it again, cold</h2></header><p>The rejections start again.</p>
 <p>This time nothing gets added, changed, or deployed — the evidence you need is already in the service. Freeze the code and reproduce the incident:</p>
 <div class="terminal card"><div class="card-bar"><span class="card-label">Terminal</span><button class="copy" type="button" hidden data-copy="./lab traffic incident
@@ -1448,7 +1452,7 @@ from shared.telemetry import tracer</code></pre></div>
 <span class="cmd">./lab check metrics</span>
 <span class="cmd">./lab check traces</span>
 <span class="cmd">./lab check logs</span></code></pre></div>
-<p><strong>Start a timer when those commands finish</strong>, and stop it when you have all four answers. Complete <a href="worksheet.html">worksheet.md</a> by opening the views in this order — open it in a Markdown preview too, because its answer section is behind a toggle.</p>
+<p><strong>Start a timer when those commands finish</strong>, and stop it when you have all four answers. Complete <a href="worksheet.html">the evidence worksheet</a> by opening the views in this order. Its answer section stays behind a toggle, so leave that closed until every other line is filled in.</p>
 <h3 id="detect">Detect</h3>
 <p>Open <a class="view-link" href="http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s" target="_blank" rel="noopener"><span class="view-name">Runtime and checkout metrics</span><span class="view-arrow" aria-hidden="true">↗</span><span class="print-url">http://localhost:3000/d/checkout-overview/checkout-observability?from=now-15m&amp;to=now&amp;refresh=5s</span></a>. Record what changed, the business-failure percentage, and the time window.</p>
 <h3 id="scope">Scope</h3>
@@ -1461,7 +1465,7 @@ from shared.telemetry import tracer</code></pre></div>
 <h3 id="time-the-second-run">Time the second run</h3>
 <p>Three minutes at 09:15 produced no reliable answer. The same incident, the same 100 requests, just took you under a minute end to end — and the last code change happened <em>before</em> this run started. That gap is the whole subject of this lab.</p>
 <h3 id="what-you-would-do-next-for-completeness">What you would do next, for completeness</h3>
-<p>Nothing in this lab fixes the bug, deliberately: the exercise is about evidence, not about <code>Decimal</code>. For closure — Checkout rounds with <code>HALF_UP</code> and Payment with <code>HALF_EVEN</code> (both in <code>services/shared/domain.py</code>). A discounted CAD total lands on exactly 10.005 — so <code>HALF_UP</code> rounds the half-cent away from zero and sends 1001, while <code>HALF_EVEN</code> rounds it to the nearest even cent and expects 1000. The repair is to make rounding an explicit shared contract instead of a private choice each service makes quietly. That you can state the fix in one sentence, and name the file, is the entire return on the thirty lines you added.</p>
+<p>Nothing in this lab fixes the bug, deliberately: the exercise is about evidence, not about <code>Decimal</code>. For closure — Checkout rounds with <code>HALF_UP</code> and Payment with <code>HALF_EVEN</code> (both in <code>services/shared/domain.py</code>). A discounted CAD total lands on exactly 10.005 — so <code>HALF_UP</code> rounds the half-cent away from zero and sends 1001, while <code>HALF_EVEN</code> rounds it to the nearest even cent and expects 1000. It is the half-cent that breaks it, not the discount: discounted USD totals land on 10.015, where the nearest even cent is 10.02 and both modes agree, which is why that segment stayed green all morning. The repair is to make rounding an explicit shared contract instead of a private choice each service makes quietly. That you can state the fix in one sentence, and name the file, is the entire return on the thirty lines you added.</p>
 <hr class="rule"></section>
 <section class="step" id="6-the-retro" data-step="6-the-retro" data-detect="yes" data-scope="yes" data-isolate="yes" data-explain="yes"><header class="step-head"><span class="step-badge">6</span><span class="step-time">11:00</span><h2 id="6-the-retro-title">The retro</h2></header><p>Incident closed. Now the part that decides whether the next one goes like this or like 09:15.</p>
 <h3 id="what-the-three-changes-were-together">What the three changes were, together</h3>

@@ -23,10 +23,10 @@ workshop/notes/          validation records and the original lab plan
 1. Distribute the repository and pinned image bundle.
 2. Ask participants to complete `./lab setup` or import the image archive before the session.
 3. Tell them to run `./lab guide`, which opens `guide/guide.html` — the lab page, with the Grafana
-   views built in as buttons. `./lab guide worksheet` opens the worksheet the same way. Anyone who
-   prefers Markdown can read `guide/participant-guide.md` and `guide/worksheet.md` in a **Markdown
-   preview** (`Cmd+Shift+V` in VS Code); in a plain editor every answer toggle is visible, which
-   removes most of the exercise.
+   views built in as buttons. `./lab guide worksheet` opens the worksheet the same way. The guide
+   does not offer a Markdown reading path, and neither should you: `guide/participant-guide.md` and
+   `guide/worksheet.md` are the sources those pages are generated from, and an editor showing them
+   as plain text reveals every answer toggle, which removes most of the exercise.
 4. On the facilitator machine, run:
 
    ```bash
