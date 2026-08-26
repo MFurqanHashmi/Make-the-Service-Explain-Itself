@@ -110,6 +110,14 @@ class DashboardPanelTests(unittest.TestCase):
         self.assertIn("or vector(0)", expr,
                       "without a zero fallback the panel shows No data on healthy traffic")
 
+    def test_failure_rate_panel_ignores_windows_with_almost_no_traffic(self):
+        """A window holding only the burst's last request reads 100%, and `max` keeps it."""
+        expr = self.panels["Peak business failures"]["targets"][0]["expr"]
+        self.assertRegex(
+            expr, r"and\s+sum\(rate\(.*\)\)\s*>\s*\d",
+            "without a throughput guard the tile latches onto a boundary artifact",
+        )
+
     def test_rate_windows_fit_inside_one_traffic_burst(self):
         """The dashboard window must be shorter than the burst and shorter than the gap."""
         generate = (ROOT / "workshop/traffic/generate.py").read_text()

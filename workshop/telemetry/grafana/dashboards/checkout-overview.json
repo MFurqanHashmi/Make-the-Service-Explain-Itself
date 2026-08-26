@@ -30,7 +30,7 @@
     {
       "type": "stat",
       "title": "HTTP 200 responses",
-      "description": "Lowest HTTP success rate in any 30s window. Transport-level health only: it says the API answered, not that checkout did its job.",
+      "description": "Lowest HTTP success rate in any 15-second window. Transport-level health only: it says the API answered, not that checkout did its job.",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -87,7 +87,7 @@
     {
       "type": "stat",
       "title": "Peak business failures",
-      "description": "Highest business-failure rate in any 30s window. 'or vector(0)' keeps the panel showing 0% during healthy traffic instead of dropping to No data.",
+      "description": "Highest business-failure rate in any 15-second window. 'or vector(0)' keeps the panel showing 0% during healthy traffic instead of dropping to No data, and the trailing throughput guard drops windows holding a request or two at the edge of a burst, where a single rejection would otherwise read as 100%.",
       "gridPos": {
         "h": 5,
         "w": 6,
@@ -101,7 +101,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(rate({__name__=~\"checkout_completed.*\",checkout_outcome!=\"success\"}[15s]) or vector(0)) / sum(rate({__name__=~\"checkout_completed.*\"}[15s]))",
+          "expr": "100 * sum(rate({__name__=~\"checkout_completed.*\",checkout_outcome!=\"success\"}[15s]) or vector(0)) / sum(rate({__name__=~\"checkout_completed.*\"}[15s])) and sum(rate({__name__=~\"checkout_completed.*\"}[15s])) > 2",
           "legendFormat": "Business failures"
         }
       ],

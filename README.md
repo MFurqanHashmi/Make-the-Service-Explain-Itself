@@ -22,7 +22,8 @@ telemetry is added after the diagnosis begins.
 
 ```text
 lab              every command you run, start to finish (./lab with no arguments lists them)
-guide/           what participants read: guide.html, the worksheet, and their Markdown sources
+guide/           what participants read via ./lab guide: guide.html and the worksheet,
+                 plus the Markdown sources they are generated from
 services/        the checkout system under test — checkout, inventory, payment, shared
 workshop/        everything running the lab needs and nobody has to open:
                  checkpoints, telemetry config, traffic generator, tests, Docker, facilitator notes
@@ -68,14 +69,15 @@ For an offline session, a facilitator can distribute an image archive:
 ./lab guide
 ```
 
-`./lab start` can take two to three minutes the first time. `./lab guide` opens
-[guide/guide.html](guide/guide.html) in your browser — that is the lab. Work straight through it: every Grafana
-view is a button in the page, every command has a copy button, and the answers stay hidden behind
-toggles until you open them.
+`./lab start` can take two to three minutes the first time. `./lab guide` then opens the lab page
+in your browser — that is the lab. Work straight through it: every Grafana view is a button in the
+page, every command has a copy button, and the answers stay hidden behind toggles until you open
+them. `./lab guide worksheet` opens the evidence worksheet the same way, when section 5 asks for it.
 
-The same content in plain Markdown is [guide/participant-guide.md](guide/participant-guide.md),
-which is the source the page is generated from. Read it in a Markdown preview if you prefer it; a plain text
-editor shows every answer immediately.
+Read the lab through `./lab guide`, not by opening the files under `guide/` directly.
+`guide/participant-guide.md` and `guide/worksheet.md` are the Markdown sources the pages are
+generated from, and any editor that shows them as plain text also shows every answer, screenshot
+and reveal — which is most of the exercise.
 
 ## Commands
 
@@ -84,7 +86,7 @@ Run `./lab` with no arguments for the full list. The ones you need during the la
 ```text
 ./lab start                    Start the stack
 ./lab ready                    Verify every backend is serving data
-./lab guide                    Open the lab guide in your browser
+./lab guide                    Open the lab guide in your browser (add 'worksheet' for the worksheet)
 ./lab traffic healthy          Generate a healthy baseline
 ./lab traffic incident         Generate the deterministic incident
 ./lab check metrics            Verify fresh metrics evidence

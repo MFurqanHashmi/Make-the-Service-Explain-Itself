@@ -1,10 +1,5 @@
 # Checkout is quietly failing
 
-> **This is the source text of the lab guide.** The version to work from is `guide.html` — run
-> `./lab guide` — which adds one-click Grafana views, copy buttons and diagrams. If you would rather
-> stay here, read it in a Markdown preview (`Cmd+Shift+V` in VS Code): both versions hide answers and
-> screenshots behind toggles, and a plain text editor shows them all immediately.
-
 **09:12.** You are on call for checkout. A payments teammate messages you: *"a few customers are
 saying checkout does nothing."*
 
@@ -20,7 +15,7 @@ query.
 ## Before you start
 
 The stack must already be built. If you have not done it yet, run `./lab setup` once while
-online (see [README.md](../README.md)). It only has to happen once.
+online. It only has to happen once.
 
 ## The system you are on call for
 
@@ -62,7 +57,8 @@ Before the first question lands, make sure the environment is running.
 ./lab ready
 ```
 
-`./lab start` can take two to three minutes the first time. Expected readiness message:
+`./lab start` can take two to three minutes the first time. On a cold start `./lab ready` first
+prints a line about waiting for the telemetry backends; what you are waiting for is this:
 
 ```text
 READY: checkout, inventory, payment, metrics, traces, logs, and Grafana are available
@@ -110,8 +106,10 @@ edits.
 
 ## 1. Three minutes with what you have
 
-**09:15.** You start where anyone starts: the logs. That is all this service has — prose logs, the
-thing most services ship with and nothing else.
+**09:15.** You start where anyone starts: the logs. There is runtime telemetry underneath — CPU,
+memory, and the HTTP spans auto-instrumentation records for free — but none of it describes what a
+checkout *decided*. For that, prose logs are all this service has, which is what most services ship
+with.
 
 Reproduce what the customers hit:
 
@@ -127,7 +125,8 @@ something like this:
 Two details in that screenshot are the whole problem. The volume histogram is a single flat band of
 `info` — 838 lines, one severity. And the Fields sidebar on the left offers `service_name`,
 `severity_text`, and the file and line each message came from, but not one field describing what a
-checkout actually *did*.
+checkout actually *did*. The two business-looking fields in that list, `event_name` and `component`,
+sit at 1%: they belong to a startup marker the lab emits, not to any checkout.
 
 ### Your three minutes
 
@@ -291,8 +290,9 @@ both profiles:
 ./lab traffic incident
 ```
 
-Each run takes about 45 seconds. Within a few seconds of the first one, panels that were empty all
-morning start drawing: your one `.add()` call is the only reason there is anything to draw.
+Each run takes about 45 seconds: one warm-up checkout, a quiet twenty seconds, then the burst. So
+give it half a minute before panels that were empty all morning start drawing — and when they do,
+your one `.add()` call is the only reason there is anything to draw.
 
 **Read the next two parts while the runs finish**, then come back to the dashboard.
 
@@ -332,8 +332,6 @@ A counter does not store your checkouts. It stores **one running total per uniqu
 attribute values**. Each of those totals is called a *time series* — one line that only ever ticks
 upward.
 
-<!-- figure: cardinality-explosion -->
-
 Your three attributes can only combine so many ways, so after a 100-checkout incident run the
 entire metric is three lines:
 
@@ -354,6 +352,8 @@ orders sounds far more useful. Why is it not in the attribute dictionary?
 
 <details>
 <summary>Predict first, then open</summary>
+
+<!-- figure: cardinality-explosion -->
 
 Because order IDs never repeat, so every single checkout invents a line of its own:
 
@@ -390,8 +390,8 @@ to find:
 
 - **HTTP 200 responses: 100%.** Transport never noticed.
 - **Checkout CPU and memory:** normal.
-- **Peak business failures: 24–27%.** This panel reports the worst 15-second window, so it lands
-  near but not exactly on the true rate depending on where the window falls.
+- **Peak business failures: 22–27%.** This panel reports the worst 15-second window of real
+  traffic, so it lands near but not exactly on the true rate depending on where the window falls.
 - **Checkout outcomes by segment:** one failing row — `CAD discounted=true → payment_rejected`,
   at 25 — beside two clean ones.
 
@@ -503,8 +503,6 @@ A **trace** is one request's story across every service it touched. A **span** i
 story: a timed operation with a name, some attributes, and a status of OK or error. Spans nest
 inside each other, which is why a trace reads as a waterfall.
 
-<!-- figure: trace-waterfall -->
-
 Automatic instrumentation is already recording spans for the HTTP calls between Checkout,
 Inventory and Payment, so a trace of the whole request exists right now. What it cannot know is
 which *business decision* inside Payment mattered — it sees an HTTP handler, not an amount
@@ -562,9 +560,21 @@ def validate_amount(
 
     # LAB 2: replace validation evidence block
     with tracer.start_as_current_span("payment.amount_validation") as span:
-        ...
+        span.set_attribute("payment.currency", currency)
+        span.set_attribute("payment.discounted", discounted)
+        span.set_attribute("validation.result", "accepted" if accepted else "rejected")
+        if not accepted:
+            span.set_status(Status(StatusCode.ERROR, "amount validation rejected"))
+
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            _log_weak_rejection()
+
         return accepted
 ```
+
+Everything from `with` downwards is one block: the four `span` lines and the `if` sit at eight
+spaces, and `return accepted` is the last line inside it.
 
 The old two-line `if not accepted: _log_weak_rejection()` / `return accepted` block should no
 longer exist at four-space indentation — it now lives inside the `with` block.
@@ -665,6 +675,8 @@ This is the same "every request returns 200" problem you started with, except th
 shows both truths at once: transport succeeded, the business decision did not. A green root with a
 red child is a completely normal, correct picture of a business failure.
 
+<!-- figure: trace-waterfall -->
+
 </details>
 
 ### Read the trace
@@ -699,10 +711,12 @@ If the evidence does not appear:
 ### Back to question 3
 
 "Which checkout request produced one specific rejection?" — the trace ID at the top of that
-waterfall is the answer, and section 1 had nothing that could produce it. Payment's prose and
-Checkout's prose were unrelated text in one shared stream. One propagated trace context later, a
-single request carries one identifier across all three services, and you can hand that ID to
-somebody else knowing they will look at exactly the request you looked at.
+waterfall is the answer. Look closely at where you started, though: every one of those 838 prose
+lines already carried a `trace_id`, put there by the same auto-instrumentation, and it bought you
+nothing. Requests were traceable in section 1. What was missing was any reason to open one trace
+rather than another, and any span that named the decision once you did. That is what changed — not
+that a request can be followed, but that one span now says which request went wrong and where. It
+is the difference between an identifier and an identifier worth handing to somebody else.
 
 ### What you can now hand to Payments
 
@@ -764,8 +778,6 @@ Three phrasings, at `INFO`, with no fields. This is what "we already log that" u
 You are not adding logging here; you are replacing prose with a **structured event** — a log line
 whose facts live in named fields instead of inside an English sentence, so they can be filtered,
 grouped and counted without anyone parsing text.
-
-<!-- figure: prose-vs-event -->
 
 ### Say what the service compared
 
@@ -887,9 +899,12 @@ inside the `with` block rather than after it.
 
 Move the same call below the `with` block and it would not lose the trace outright — the HTTP
 server span for `POST /authorize` is still active out there, so the record would attach to *that*
-instead. You would keep the trace ID and lose the precision: the event would no longer point at the
-validation operation, and **Logs for this span** on the red span would come back empty. Placement
-is instrumentation.
+instead. You would keep the trace ID and lose the precision: the event's `span_id` would point at
+the HTTP handler rather than at the validation that rejected the amount. This lab's Grafana
+correlates on trace ID alone, so **Logs for this span** would still return the event — along with
+every other line in the request. But anything asking *which operation* recorded it would now get
+the wrong answer, and on a busier request that is the difference between evidence and noise.
+Placement is instrumentation.
 
 </details>
 
@@ -930,9 +945,10 @@ completely without a single piece of customer data.
 
 ### Read the events
 
-Open **Structured payment-validation events**. You should see 25 rows at `WARN`
-— not `INFO` — and a Fields sidebar listing every business field at 100%, meaning the field is on
-every single event rather than on a lucky subset.
+Open **Structured payment-validation events**. You should see 25 rows at `WARN` — not `INFO` — one
+per rejected checkout in the run you just made, and a Fields sidebar listing every business field at
+100%, meaning the field is on every single event rather than on a lucky subset. The view covers the
+last 15 minutes, so an earlier run's rejections can still be in it; count per burst, not in total.
 
 **Expand one row** to see the fields attached to it. OpenTelemetry sends them as Loki structured
 metadata, so they are attributes on the row rather than text buried in the message.
@@ -949,6 +965,8 @@ Fields should include:
 
 Compare that with what the same rejection looked like earlier: `validate_amount -> False`.
 Every field in that sidebar is now something you can filter and group by.
+
+<!-- figure: prose-vs-event -->
 
 <details>
 <summary>Show the finished Explore view</summary>
@@ -1021,8 +1039,8 @@ service. Freeze the code and reproduce the incident:
 ```
 
 **Start a timer when those commands finish**, and stop it when you have all four answers. Complete
-[worksheet.md](worksheet.md) by opening the views in this order — open it in a Markdown preview
-too, because its answer section is behind a toggle.
+[the evidence worksheet](worksheet.md) by opening the views in this order. Its answer section
+stays behind a toggle, so leave that closed until every other line is filled in.
 
 ### Detect
 
@@ -1058,7 +1076,9 @@ Nothing in this lab fixes the bug, deliberately: the exercise is about evidence,
 `Decimal`. For closure — Checkout rounds with `HALF_UP` and Payment with `HALF_EVEN` (both in
 `services/shared/domain.py`). A discounted CAD total lands on exactly 10.005 — so `HALF_UP` rounds the
 half-cent away from zero and sends 1001, while `HALF_EVEN` rounds it to the nearest even cent and
-expects 1000. The repair is to make rounding an explicit shared contract instead of a private
+expects 1000. It is the half-cent that breaks it, not the discount: discounted USD totals land on
+10.015, where the nearest even cent is 10.02 and both modes agree, which is why that segment stayed
+green all morning. The repair is to make rounding an explicit shared contract instead of a private
 choice each service makes quietly. That you can state the fix in one sentence, and name the file,
 is the entire return on the thirty lines you added.
 
