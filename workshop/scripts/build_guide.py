@@ -95,7 +95,16 @@ def _inline_plain(text):
         text = text.replace(f"**{html.escape(title)}**", view_button(title))
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"(?<![\w*])\*([^*\n]+)\*(?![\w*])", r"<em>\1</em>", text)
-    text = re.sub(r"_{4,}", '<span class="blank"></span>', text)
+    # Blanks are writable in the page. Nothing is stored, so they are scratch
+    # space for one sitting; the run of underscores sizes the field.
+    text = re.sub(
+        r"_{4,}",
+        lambda match: (
+            '<input class="blank" type="text" autocomplete="off" '
+            f'aria-label="Fill in your answer" style="--blank-size: {len(match.group(0))}ch">'
+        ),
+        text,
+    )
     return text
 
 
