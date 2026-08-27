@@ -323,11 +323,38 @@ code {
   word-break: break-word;
 }
 
+/* Blanks are real inputs, so a reader can answer in the page. Nothing is
+   saved — a reload clears them — and they print as ruled lines either way. */
 .blank {
   display: inline-block;
-  min-width: 9ch;
-  border-bottom: 1.5px solid var(--line-strong);
+  /* The run of underscores sizes the field; the cap keeps a long one from
+     pushing the sentence that introduces it onto its own line. */
+  width: min(var(--blank-size, 12ch), 26ch, 100%);
+  min-width: 6ch;
   margin-bottom: -0.15em;
+  padding: 0 0.25rem;
+  border: 0;
+  border-bottom: 1.5px solid var(--line-strong);
+  border-radius: 3px 3px 0 0;
+  background: var(--surface-sunk);
+  color: var(--ink);
+  font: inherit;
+}
+.blank:hover { border-bottom-color: var(--ink-faint); }
+.blank:focus {
+  outline: none;
+  border-bottom-color: var(--info);
+  background: var(--info-bg);
+}
+td .blank {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+@media print {
+  /* Paper takes handwriting, so a blank prints as a ruled line either way. */
+  .blank { background: none; }
 }
 
 .rule {

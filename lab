@@ -79,11 +79,16 @@ case "$cmd" in
     signal="${1:?metrics|traces|logs required}"
     case "$signal" in metrics) cp=1-metrics-complete;; traces) cp=2-traces-complete;; logs) cp=3-logs-complete;; *) exit 2;; esac
     restore "$cp"
-    echo "Restored checkpoint $cp; waiting for hot reload..."
+    # Recovery is four slow steps and it used to narrate none of them: a full
+    # traffic run alone is 45 quiet seconds, which reads as a hung terminal.
+    echo "[1/4] Restored checkpoint $cp. Waiting for the services to reload..."
     sleep 3
     "${compose[@]}" up -d --no-build --pull never lgtm inventory payment checkout >/dev/null
+    echo "[2/4] Waiting for checkout to report healthy..."
     wait_health
+    echo "[3/4] Generating fresh incident traffic. This takes about 45 seconds..."
     "$0" traffic incident >/dev/null
+    echo "[4/4] Verifying the $signal evidence..."
     "$0" check "$signal"
     ;;
   checkpoint)

@@ -102,7 +102,7 @@ If something goes wrong:
 ./lab ready                    Safe to re-run; backends can be slow on a cold start
 ./lab links                    Print the four Grafana URLs, if you would rather not use the buttons
 ./lab restart-services         Re-emit readiness markers, then run ./lab ready again
-./lab recover metrics          Restore the completed metrics checkpoint
+./lab recover metrics          Restore the metrics checkpoint, then re-verify (about a minute)
 ./lab recover traces           Restore metrics + traces
 ./lab recover logs             Restore all three checkpoints
 ./lab reset                    Restore starter code and remove telemetry data

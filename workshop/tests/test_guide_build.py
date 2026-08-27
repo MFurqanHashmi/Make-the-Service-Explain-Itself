@@ -6,8 +6,11 @@ catches exactly that, and the rest check the properties the page is useless
 without — working view buttons, no unconverted Markdown, and nothing that needs
 the network.
 """
+import html
+import json
 import re
 import unittest
+import urllib.parse
 from pathlib import Path
 
 from workshop.scripts.build_guide import DOCUMENTS, FIGURE_DIR, render_document
@@ -67,6 +70,19 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(4, BODY.count('<figure class="shot">'))
         self.assertEqual(5, BODY.count('<ul class="state-grid">'))
         self.assertIn('<div class="prediction">', BODY)
+
+    def test_quoted_queries_match_the_prepared_views(self):
+        """A query printed in the guide is a promise about what its button runs."""
+        for title, url in LINKS:
+            if "left=" not in url:
+                continue  # the dashboard link carries no query
+            pane = json.loads(urllib.parse.unquote(url.split("left=", 1)[1]))
+            query = pane["queries"][0].get("expr") or pane["queries"][0].get("query")
+            with self.subTest(title):
+                self.assertIn(
+                    html.escape(query), GUIDE,
+                    f"{title}: the guide quotes a query the button does not run",
+                )
 
     def test_no_table_renders_without_rows(self):
         """The state tables become pills; their header rows have to leave with them."""

@@ -70,9 +70,13 @@ backends sometimes need a second attempt on a cold start. If it still fails, run
 `./lab restart-services` and then `./lab ready`.
 
 Every Grafana view this lab uses is a button in the guide, and `./lab links` prints the same four
-URLs if you would rather keep them in a terminal. All views use a relative 15-minute time range.
-Grafana needs no login — the lab runs it with anonymous access, so ignore the "Sign in" button in
-the corner.
+URLs if you would rather keep them in a terminal. Grafana needs no login — the lab runs it with
+anonymous access, so ignore the "Sign in" button in the corner.
+
+One thing to know before you are surprised by it: every view shows **the last 15 minutes**, and each
+traffic run lasts about 45 seconds. Take a long break, or fall behind while reading, and the views
+go empty — the evidence has not been lost, it has simply scrolled out of the window. Re-running the
+traffic command for the section you are on brings it straight back.
 
 ### Where you will be making changes
 
@@ -98,9 +102,10 @@ instead of producing evidence. Two escapes:
 ```
 
 `./lab checkpoint <stage>` restores code only, so it is also how you catch up if you fall behind.
-`./lab recover <stage>` does the same and then regenerates and re-verifies the evidence. Both are
-cumulative: `traces` includes the metrics change, and restoring an earlier stage discards later
-edits.
+`./lab recover <stage>` does the same and then regenerates and re-verifies the evidence, which
+takes about a minute — it prints each step as it goes, and step 3 is a full traffic run, so give it
+time before deciding it has stalled. Both are cumulative: `traces` includes the metrics change, and
+restoring an earlier stage discards later edits.
 
 ---
 
@@ -117,26 +122,48 @@ Reproduce what the customers hit:
 ./lab traffic incident
 ```
 
-That is 100 checkouts. Open **Noisy starting logs**. You should be looking at
-something like this:
+That is 100 checkouts, and it takes about 45 seconds: one warm-up request, a quiet twenty seconds,
+then the burst. **Wait for the command to finish and print its summary** — the logs you are about to
+read do not exist until it does.
+
+Then open **Noisy starting logs**. If you opened it before the run finished, hit Grafana's **Run
+query** button — the blue refresh at the top right of Explore — to pull in the checkouts that just
+landed. You should be looking at something like this:
 
 ![Explore showing 838 undifferentiated INFO log lines for 100 checkouts](images/01-noisy-logs.png)
 
-Two details in that screenshot are the whole problem. The volume histogram is a single flat band of
-`info` — 838 lines, one severity. And the Fields sidebar on the left offers `service_name`,
-`severity_text`, and the file and line each message came from, but not one field describing what a
-checkout actually *did*. The two business-looking fields in that list, `event_name` and `component`,
-sit at 1%: they belong to a startup marker the lab emits, not to any checkout.
+That button runs one Loki query, and it is not simplified for the lab:
+
+```text
+{service_name=~"checkout|inventory|payment"}
+```
+
+Everything those three services said, in time order. It is not a lazy query — it is the only query
+this service supports, because there is nothing else to ask for. Two details in that screenshot are
+the whole problem, and each one costs you something specific.
+
+- **One severity for everything.** The volume histogram is a single flat band of `info` — 838 lines,
+  no other level anywhere. The 25 rejections that lost customers their orders are recorded at
+  exactly the same level as `reserve called for product=weekly-report`. Nothing marks the important
+  events out from the routine ones, so there is no level to filter on, nothing to scan for, and
+  nothing an alert could ever fire on.
+- **No field says what a checkout did.** The Fields sidebar on the left offers `service_name`,
+  `severity_text`, and the file and line each message came from — infrastructure facts, every one of
+  them. Nothing names an outcome, a currency, or a discount, so there is nothing to filter by and
+  nothing to group by: "how many failed?" can only be answered by reading lines and counting them
+  yourself. The two business-looking names in that list, `event_name` and `component`, sit at 1% —
+  they belong to a startup marker the lab emits, not to any checkout.
 
 ### Your three minutes
 
-Set a timer for three minutes. Using **only** those logs, answer as much as you can:
+Set a timer for three minutes. Using **only** those logs, answer as much as you can. You can type
+straight into the table — nothing is saved, so it is scratch space for the next three minutes:
 
 | # | Question | Your answer | Confidence |
 | --- | --- | --- | --- |
-| 1 | How many payment validations were rejected? | | |
-| 2 | Which currency and discount segment was affected? | | |
-| 3 | Which checkout request produced one specific rejection? | | |
+| 1 | How many payment validations were rejected? | ________________ | ________ |
+| 2 | Which currency and discount segment was affected? | ________________ | ________ |
+| 3 | Which checkout request produced one specific rejection? | ________________ | ________ |
 
 **Stop at three minutes even if you are mid-scroll.** Do not skip this. This is your honest
 baseline — what the service can tell you today, under exactly the pressure a real incident applies
@@ -283,16 +310,51 @@ Indentation is the usual failure. Everything above is inside `process_checkout`,
 
 Nothing shows up in Grafana until checkouts actually run, so start them now. Open **Runtime and
 checkout metrics** and leave it in another tab — it refreshes itself every five seconds — then run
-both profiles:
+the healthy profile:
 
 ```bash
 ./lab traffic healthy
+```
+
+**Wait for it to finish and print its summary before starting the next one.** The two profiles must
+not overlap: if they do, healthy and incident checkouts land in the same 15-second window and the
+comparison you are about to read blurs into one line. When it is done, send the incident traffic:
+
+```bash
 ./lab traffic incident
 ```
 
-Each run takes about 45 seconds: one warm-up checkout, a quiet twenty seconds, then the burst. So
-give it half a minute before panels that were empty all morning start drawing — and when they do,
-your one `.add()` call is the only reason there is anything to draw.
+Each run takes about 45 seconds, with the same quiet lead-in you waited through in section 1, so
+give it half a minute before the panels start moving. The dashboard refreshes itself every five
+seconds, so you never have to re-run anything here.
+
+Those panels are not new, and nobody is about to build them for you. They were provisioned before
+you arrived and have been drawing nothing all morning, because nothing was recording into
+`checkout.completed`. Each one is a query over the exact attributes you just attached — the segment
+panel, for instance, is a single line:
+
+```text
+sum by (checkout_currency, checkout_discounted, checkout_outcome) (checkout_completed_total)
+```
+
+Take the counter, split it by three of its attributes. That is the whole panel. Two details to
+carry with you: the counter picked up a `_total` suffix on the way in, which is the storage
+convention for counters, and the dots in your attribute names became underscores, so
+`checkout.outcome` is `checkout_outcome` once Prometheus holds it. (Open the panel and you will find
+it matches the metric name with a small regex rather than spelling out `checkout_completed_total`,
+so the lab keeps working whichever suffix the pipeline gives the counter. Nothing else differs.)
+
+| Panel | What it does with the counter | Attributes it needs |
+| --- | --- | --- |
+| **Business outcome over time** | a rate per second, one line per outcome | `checkout.outcome` |
+| **Peak business failures** | the share of that rate that is not `success` | `checkout.outcome` |
+| **Checkout outcomes by segment** | running totals, split three ways | all three |
+
+Ask for an attribute nothing records and you get an empty panel — which is exactly what this
+dashboard has been showing all morning. The other three tiles, **HTTP 200 responses**, **Checkout
+CPU** and **Checkout memory**, have been drawing the whole time without any help from you: they come
+from auto-instrumentation and the runtime, and they are precisely the tiles that never noticed
+anything was wrong.
 
 **Read the next two parts while the runs finish**, then come back to the dashboard.
 
@@ -388,12 +450,13 @@ line and the incident run as a second red one underneath it, and four stat tiles
 top. Two of those tiles disagree with each other, which is exactly the disagreement you came here
 to find:
 
-- **HTTP 200 responses: 100%.** Transport never noticed.
-- **Checkout CPU and memory:** normal.
-- **Peak business failures: 22–27%.** This panel reports the worst 15-second window of real
-  traffic, so it lands near but not exactly on the true rate depending on where the window falls.
+- **HTTP 200 responses: 100%.** Transport never noticed. Green all morning, green now.
+- **Checkout CPU and memory:** normal. Also green all morning.
+- **Peak business failures: 22–27%.** Empty until you added the outcome attribute. It reports the
+  worst 15-second window of real traffic, so it lands near but not exactly on the true rate
+  depending on where the window falls.
 - **Checkout outcomes by segment:** one failing row — `CAD discounted=true → payment_rejected`,
-  at 25 — beside two clean ones.
+  at 25 — beside two clean ones. The row labels are your three attributes, read back to you.
 
 <details>
 <summary>Why the segment numbers land where they do</summary>
@@ -415,7 +478,9 @@ segment panel underneath names the affected group outright.
 
 </details>
 
-The dashboard is the primary verification. For the exact numbers, run:
+The dashboard is the primary verification. For the exact numbers, run the check below — it queries
+the same Prometheus the dashboard does and asserts what the run should have produced: 100 completed
+checkouts, 25 business failures, all of them discounted CAD, and not one non-200 response.
 
 ```bash
 ./lab check metrics
@@ -427,9 +492,10 @@ If the check reports a code/service error or times out:
 ./lab recover metrics
 ```
 
-Recovery restores the checkpoint, waits for the reload, generates fresh traffic and re-verifies —
-see [If an edit goes wrong](#if-an-edit-goes-wrong) in section 0. Always recover the stage you are
-on; an earlier stage discards later edits.
+Recovery restores the checkpoint, waits for the reload, generates fresh traffic and re-verifies,
+printing each of the four steps as it goes; it takes about a minute, most of it the traffic run. See
+[If an edit goes wrong](#if-an-edit-goes-wrong) in section 0. Always recover the stage you are on;
+an earlier stage discards later edits.
 
 ### Back to your three minutes
 
@@ -517,11 +583,37 @@ from shared.telemetry import tracer
 
 ### Name the decision
 
-Find this marker and the weak log/return block immediately below it:
+Find the marker near the bottom of `validate_amount`. This is everything that is there today:
 
 ```python
-# LAB 2: replace validation evidence block
+    # LAB 2: replace validation evidence block
+    if not accepted:
+        _log_weak_rejection()
+    return accepted
 ```
+
+The decision itself has already happened: `accepted` was worked out on the line above, by comparing
+two integers. What the function never does is *say* that a decision called "amount validation" took
+place here, or how it went. That is what you are about to add, and the word for it is **wrap**.
+
+A span is not a line you print. It is a stretch of time you open and close, and everything that
+happens in between belongs to it. Python already has that shape — the `with` block:
+
+```text
+with tracer.start_as_current_span("payment.amount_validation") as span:
+    ...everything that happens during the validation...
+```
+
+At the top of the block the SDK starts a span and makes it the current one. At the bottom — however
+you leave, by `return` or by an exception — it closes the span, stamps how long it took, and hands
+it to the exporter. You never call an "end" function, and you never say who the parent is: the HTTP
+auto-instrumentation already has a server span open for `POST /authorize`, and yours nests inside it
+automatically.
+
+That is why this step **replaces** lines instead of adding some. The two lines that are there have
+to end up *inside* the block, one indentation level deeper, and so does the `return` — leaving the
+block is what ends the span, so returning from inside it means the span covers the decision rather
+than stopping just before it.
 
 Replace the marker and everything from it through `return accepted` with the block below. Its
 first line begins with four spaces because it remains inside `validate_amount`:
@@ -542,8 +634,21 @@ first line begins with four spaces because it remains inside `validate_amount`:
         return accepted
 ```
 
-Save the file. `_log_weak_rejection` is the old prose helper; it stays for one more section so you
-can compare it directly with what replaces it.
+Line by line, that is:
+
+- **`with tracer.start_as_current_span(...) as span:`** — start a span, name it after the decision,
+  and hand you a handle called `span` to hang facts on.
+- **The three `set_attribute` calls** — key/value facts recorded on this span. `payment.currency`
+  and `payment.discounted` say *which* checkout this was; `validation.result` says what the answer
+  was, in a word.
+- **`span.set_status(...)`, only when the amount was rejected** — the one line that makes the span
+  *look* wrong rather than merely contain a wrong-looking attribute.
+- **`_log_weak_rejection()`** — the old prose helper, unchanged. It stays for one more section so
+  you can compare it directly with what replaces it in section 4.
+- **`return accepted`** — the same value the function always returned, now handed back from inside
+  the block, so the span closes as the function ends.
+
+Save the file.
 
 <details>
 <summary>Verify your edit — what the function should look like now</summary>
@@ -587,11 +692,17 @@ Spans only exist for requests that actually happen, so send another hundred:
 
 ```bash
 ./lab traffic incident
+```
+
+**Let it finish before you run the check.** Each check measures the run that has just completed —
+start one while traffic is still flowing and it is reading a window that is half old run, half new:
+
+```bash
 ./lab check traces
 ```
 
-That takes about a minute, and the check prints a fresh trace ID when it finishes. **Read the next
-two parts while it runs.**
+The two together take about a minute, and the check prints a fresh trace ID when it finishes.
+**Read the next two parts while they run.**
 
 <details>
 <summary>The check fails, or prints no trace ID</summary>
@@ -605,21 +716,19 @@ Payment probably did not reload — a `with` block at the wrong indentation is t
 
 </details>
 
-### What that block does
+### Why those five lines say what they say
 
-- **`start_as_current_span("payment.amount_validation")`** opens a span and makes it the active one
-  until the block exits. You never pass it a parent — the HTTP auto-instrumentation already opened
-  a server span for `POST /authorize`, and the SDK nests yours underneath it.
+You know what the block *does* now. These are the choices inside it that were not obvious:
+
 - **The name is the decision, not the function.** `payment.amount_validation` is what you want to
   spot in a waterfall; `validate_amount` is an implementation detail that gets renamed one day.
-- **`set_attribute(...)`** makes the span filterable. `payment.currency` and `payment.discounted`
-  are the same two dimensions you used in the metric, so the segment you scoped in section 2 is
-  the segment you can search for here.
-- **`set_status(Status(StatusCode.ERROR, ...))`** is the load-bearing line: it marks the span
+- **The attributes are the same two dimensions you put on the metric.** The segment you scoped in
+  section 2 is therefore the segment you can search for here. Matching names across signals is what
+  lets you carry an answer from one to the next instead of starting over.
+- **`set_status(Status(StatusCode.ERROR, ...))` is the load-bearing line.** It marks the span
   failed, draws the red icon, and makes `status = error` a valid search. Without it a rejection is
-  a perfectly ordinary-looking span — the same trap as HTTP 200.
-- **The `with` block closes the span for you**, which is what gives the operation a duration.
-  `return accepted` moves inside on purpose, and so does the event you add in section 4.
+  a perfectly ordinary-looking span — the same trap as HTTP 200. An attribute saying
+  `validation.result=rejected` is data; the status is what makes the failure *findable*.
 
 <details>
 <summary>How three separate services end up in one trace</summary>
@@ -681,8 +790,23 @@ red child is a completely normal, correct picture of a business failure.
 
 ### Read the trace
 
-Open **Failed payment-validation traces** and **click any Trace ID** from the run you just made. You are looking at one request's whole life: roughly fifteen spans, three
-services nested inside each other in the order the request travelled.
+Open **Failed payment-validation traces** and **click any Trace ID** from the run you just made — if
+you opened this view while the run was still going, hit **Run query** first so the search covers it.
+That button is not searching for "failures" — Tempo has no idea what a failure is. It runs this:
+
+```text
+{ resource.service.name = "payment" && name = "payment.amount_validation" && status = error }
+```
+
+Three conditions, and you supplied two of them a few minutes ago: `payment.amount_validation` is
+the name you gave the span, and `status = error` is what `set_status` wrote. Before that block
+existed this search returned nothing — not because nothing was failing, but because nothing said so.
+
+You are looking at one request's whole life: roughly fifteen spans, three services nested inside
+each other in the order the request travelled. Almost all of them are auto-instrumentation's — each
+service opens a server span for the request it handled, Checkout opens a client span for each call
+it makes, and the tiny `http send` and `http receive` spans are the ASGI layer underneath. Exactly
+one span in that waterfall is yours, and it is the only one that names a decision.
 
 Look for:
 
@@ -781,14 +905,17 @@ grouped and counted without anyone parsing text.
 
 ### Say what the service compared
 
-In `services/payment/app/validation.py`, find:
+In `services/payment/app/validation.py`, find the second marker — the one you carried into the
+`with` block in section 3. These are the two lines under it today:
 
 ```python
-# LAB 3: record amount validation rejection
+        # LAB 3: record amount validation rejection
+        if not accepted:
+            _log_weak_rejection()
 ```
 
-Replace the `if not accepted` block immediately below that marker with the block below. Its first
-line begins with eight spaces because it remains inside the span:
+Replace those two lines — the marker stays where it is — with the block below. It stays at eight
+spaces, inside the span, for a reason you will read about in a moment:
 
 ```python
         if not accepted:
@@ -852,10 +979,17 @@ One more hundred checkouts, so there are rejections to look at:
 
 ```bash
 ./lab traffic incident
+```
+
+**Wait for the summary again**, for the same reason. This check is the strictest of the three: it
+expects exactly 25 rejection events in the window, so a half-finished burst counted on top of the
+previous one simply reports a mismatch.
+
+```bash
 ./lab check logs
 ```
 
-About a minute. **Read the next two parts while it runs.**
+About a minute for both. **Read the next two parts while they run.**
 
 <details>
 <summary>The check fails</summary>
@@ -945,10 +1079,22 @@ completely without a single piece of customer data.
 
 ### Read the events
 
-Open **Structured payment-validation events**. You should see 25 rows at `WARN` — not `INFO` — one
-per rejected checkout in the run you just made, and a Fields sidebar listing every business field at
-100%, meaning the field is on every single event rather than on a lucky subset. The view covers the
-last 15 minutes, so an earlier run's rejections can still be in it; count per burst, not in total.
+Open **Structured payment-validation events**, hitting **Run query** if you opened it before the run
+finished. This button runs the query section 1 could not:
+
+```text
+{service_name="payment"} | event_name = "payment.amount_validation_rejected"
+```
+
+The first half is all Loki could offer you at 09:15: everything Payment said, which for a hundred
+checkouts is 225 lines. The second half is a filter on the field you just added, and it is the
+difference between reading 225 lines and being handed 25. Nobody had to agree on any wording to
+write it.
+
+You should see 25 rows at `WARN` — not `INFO` — one per rejected checkout in that run, and a Fields
+sidebar listing every business field at 100%, meaning the field is on every single event rather than
+on a lucky subset. The view covers the last 15 minutes, so an earlier run's rejections can still be
+in it; count per burst, not in total.
 
 **Expand one row** to see the fields attached to it. OpenTelemetry sends them as Loki structured
 metadata, so they are attributes on the row rather than text buried in the message.
@@ -980,8 +1126,17 @@ full of business fields.
 </details>
 
 Open one event's **Open trace** link. In the trace, use **Logs for this span** to come back to the
-correlated event. If either direction is unavailable, use the fresh trace ID printed by the checks
-and continue; report the correlation-link issue separately from the telemetry result.
+correlated event.
+
+Neither link is code you wrote, and neither is a correlation ID anyone passed by hand. They are
+datasource configuration: Loki's datasource is told to treat a `trace_id` field as a link into
+Tempo, and Tempo's datasource is told to search Loki for the trace it is displaying. Both directions
+work for one reason — your event carries the trace and span IDs, because it was emitted inside the
+span. Configure the same two datasources against the section 1 logs and the links would still be
+there, pointing at traces that explain nothing.
+
+If either direction is unavailable, use the fresh trace ID printed by the checks and continue;
+report the correlation-link issue separately from the telemetry result.
 
 If the event does not appear:
 
@@ -1033,6 +1188,12 @@ service. Freeze the code and reproduce the incident:
 
 ```bash
 ./lab traffic incident
+```
+
+**Let the run finish.** Then verify all three signals — these take seconds, and none of them changes
+anything:
+
+```bash
 ./lab check metrics
 ./lab check traces
 ./lab check logs
